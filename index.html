@@ -1112,6 +1112,29 @@ if("serviceWorker" in navigator){
   });
 })();
 
+/* HESAP SEKME TIKLAMA DUZELTMESI */
+(function () {
+  const tab = document.getElementById("accountTab");
+  const account = document.getElementById("account");
+
+  if (!tab || !account) return;
+
+  tab.onclick = function () {
+    document.querySelectorAll(".page").forEach(function (p) {
+      p.classList.remove("active");
+    });
+
+    account.classList.add("active");
+
+    document.querySelectorAll("nav button").forEach(function (b) {
+      b.classList.remove("active");
+    });
+
+    tab.classList.add("active");
+    window.scrollTo(0, 0);
+  };
+})();
+
 </script>
 
 </body>
