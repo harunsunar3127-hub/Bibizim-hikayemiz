@@ -1135,32 +1135,34 @@ if("serviceWorker" in navigator){
   };
 })();
 
-/* HESAP SAYFASINI DOĞRUDAN AC */
-document.addEventListener("DOMContentLoaded", function () {
+
+/* HESAP SEKME SON DUZELTME */
+(function () {
   const tab = document.getElementById("accountTab");
   const account = document.getElementById("account");
 
-  if (!tab || !account) return;
+  if (!tab || !account) {
+    console.error("Hesap sekmesi veya sayfasi bulunamadi");
+    return;
+  }
 
-  tab.onclick = function (event) {
-    event.preventDefault();
-
-    document.querySelectorAll(".page").forEach(function (item) {
-      item.classList.remove("active");
+  tab.onclick = function () {
+    document.querySelectorAll(".page").forEach(function (p) {
+      p.classList.remove("active");
+      p.style.display = "none";
     });
 
     account.classList.add("active");
     account.style.display = "block";
 
-    document.querySelectorAll("nav button").forEach(function (button) {
-      button.classList.remove("active");
+    document.querySelectorAll("nav button").forEach(function (b) {
+      b.classList.remove("active");
     });
 
     tab.classList.add("active");
     window.scrollTo(0, 0);
   };
-});
-
+})();
 </script>
 
 </body>
