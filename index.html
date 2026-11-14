@@ -889,280 +889,307 @@ if("serviceWorker" in navigator){
  });
 }
 
-/* ===== BIZIM HIKAYEMIZ - SUPABASE HESAP VE ORTAK ALAN ===== */
-
+/* ===== HESAP VE SUPABASE - DUZELTILMIS ===== */
 (function () {
-  const accountHTML = `
-  <section id="account" class="page">
-    <div class="card">
-      <h3>🔐 Hesap ve ortak alan</h3>
-      <div id="cloudStatus" class="status">
-        Supabase bağlantısı bekleniyor.
-      </div>
-      <input id="cloudUrl" placeholder="Supabase proje URL'si">
-      <input id="cloudKey" type="password" placeholder="sb_publishable_...">
-      <button onclick="cloudConnect()">Bağlantıyı kaydet</button>
+  const main = document.querySelector("main");
+  const nav = document.querySelector("nav");
 
-      <div id="cloudAuth" class="hidden">
-        <input id="cloudEmail" type="email" placeholder="E-posta adresin">
-        <input id="cloudPassword" type="password" placeholder="Şifren (en az 6 karakter)">
-        <div class="row">
-          <button onclick="cloudSignUp()">Kayıt ol</button>
-          <button class="secondary" onclick="cloudSignIn()">Giriş yap</button>
+  if (!main || !nav) return;
+
+  const style = document.createElement("style");
+  style.textContent = `
+    .hidden { display:none !important; }
+    .status {
+      background:#fff0f5;
+      padding:12px;
+      border-radius:10px;
+      margin:10px 0;
+      overflow-wrap:anywhere;
+    }
+    .row { display:flex; gap:8px; }
+    .row button { flex:1; }
+    .danger { background:#ead5df; color:#753d55; }
+  `;
+  document.head.appendChild(style);
+
+  const accountHTML = `
+    <section class="page" id="account">
+      <div class="card">
+        <h3>🔐 Hesap ve ortak alan</h3>
+
+        <div id="cloudStatus" class="status">
+          Supabase bağlantısı bekleniyor.
+        </div>
+
+        <input id="cloudUrl" placeholder="Supabase proje URL'si">
+        <input id="cloudKey" type="password"
+          placeholder="sb_publishable_...">
+
+        <button id="cloudConnectButton">Bağlantıyı kaydet</button>
+
+        <div id="cloudAuth" class="hidden">
+          <input id="cloudEmail" type="email"
+            placeholder="E-posta adresin">
+          <input id="cloudPassword" type="password"
+            placeholder="Şifren (en az 6 karakter)">
+
+          <div class="row">
+            <button id="cloudSignUpButton">Kayıt ol</button>
+            <button class="secondary" id="cloudSignInButton">Giriş yap</button>
+          </div>
+        </div>
+
+        <div id="cloudRoom" class="hidden">
+          <p id="cloudUser" class="muted"></p>
+          <button id="cloudCreateButton">❤️ Ortak alan oluştur</button>
+          <input id="cloudInvite" placeholder="Davet kodu">
+          <button class="secondary" id="cloudJoinButton">
+            Davet koduyla katıl
+          </button>
+          <div id="cloudRoomInfo" class="status"></div>
+          <button class="danger" id="cloudSignOutButton">Çıkış yap</button>
         </div>
       </div>
+    </section>
+  `;
 
-      <div id="cloudRoom" class="hidden">
-        <p id="cloudUser" class="muted"></p>
-        <button onclick="cloudCreateRoom()">❤️ Ortak alan oluştur</button>
-        <input id="cloudInvite" placeholder="Eşinin davet kodu">
-        <button class="secondary" onclick="cloudJoinRoom()">Davet koduyla katıl</button>
-        <div id="cloudRoomInfo" class="status"></div>
-        <button class="danger" onclick="cloudSignOut()">Çıkış yap</button>
-      </div>
-    </div>
-  </section>`;
-
-  const main = document.querySelector("main");
-  if (main && !document.getElementById("account")) {
+  if (!document.getElementById("account")) {
     const footer = main.querySelector("footer");
     if (footer) footer.insertAdjacentHTML("beforebegin", accountHTML);
     else main.insertAdjacentHTML("beforeend", accountHTML);
   }
 
-  const nav = document.querySelector("nav");
-  if (nav && !document.getElementById("accountTab")) {
-    const b = document.createElement("button");
-    b.id = "accountTab";
-    b.innerHTML = "👤<br>Hesap";
-    b.onclick = () => page("account", 5);
-    nav.appendChild(b);
+  let accountTab = document.getElementById("accountTab");
+
+  if (!accountTab) {
+    accountTab = document.createElement("button");
+    accountTab.id = "accountTab";
+    accountTab.type = "button";
+    accountTab.innerHTML = "👤<br>Hesap";
+    nav.appendChild(accountTab);
   }
 
-  const oldPage = page;
-  page = function (id, n) {
-    if (id !== "account") return oldPage(id, n);
-    document.querySelectorAll(".page").forEach(x => x.classList.remove("active"));
+  // Mevcut sayfa geçiş sistemini doğru fonksiyon üzerinden kullan.
+  const originalShowPage = window.showPage;
+
+  window.showPage = function (id, button) {
+    if (id !== "account") {
+      if (typeof originalShowPage === "function") {
+        return originalShowPage(id, button);
+      }
+      return;
+    }
+
+    document.querySelectorAll(".page").forEach(p => {
+      p.classList.remove("active");
+    });
+
     document.getElementById("account").classList.add("active");
-    document.querySelectorAll("nav button").forEach(x => x.classList.remove("active"));
-    document.getElementById("accountTab").classList.add("active");
+
+    nav.querySelectorAll("button").forEach(b => {
+      b.classList.remove("active");
+    });
+
+    accountTab.classList.add("active");
     window.scrollTo(0, 0);
   };
 
-  let cloudClient = null;
-  let cloudUser = null;
-  let cloudCouple = null;
+  accountTab.onclick = function () {
+    window.showPage("account", accountTab);
+  };
 
-  function cloudMessage(message) {
-    const el = document.getElementById("cloudStatus");
-    if (el) el.textContent = message;
+  let client = null;
+  let currentUser = null;
+
+  const el = id => document.getElementById(id);
+
+  function status(message) {
+    el("cloudStatus").textContent = message;
   }
 
-  function cloudUI() {
-    document.getElementById("cloudAuth").classList.toggle("hidden", !!cloudUser);
-    document.getElementById("cloudRoom").classList.toggle("hidden", !cloudUser);
-    document.getElementById("cloudUser").textContent =
-      cloudUser ? "Giriş yapıldı: " + cloudUser.email : "";
+  function updateAuthUI() {
+    el("cloudAuth").classList.toggle("hidden", !!currentUser);
+    el("cloudRoom").classList.toggle("hidden", !currentUser);
+    el("cloudUser").textContent =
+      currentUser ? "Giriş yapıldı: " + currentUser.email : "";
   }
 
-  function loadCloudLibrary() {
-    if (window.supabase) return Promise.resolve();
-    return new Promise((resolve, reject) => {
+  async function loadSupabaseLibrary() {
+    if (window.supabase) return;
+
+    await new Promise((resolve, reject) => {
       const script = document.createElement("script");
       script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
       script.onload = resolve;
-      script.onerror = () => reject(new Error("Supabase kütüphanesi yüklenemedi."));
+      script.onerror = () => reject(
+        new Error("Supabase kütüphanesi yüklenemedi.")
+      );
       document.head.appendChild(script);
     });
   }
 
-  window.cloudConnect = async function () {
-    const url = document.getElementById("cloudUrl").value.trim().replace(/\/+$/, "");
-    const key = document.getElementById("cloudKey").value.trim();
+  async function loadRoom() {
+    if (!client || !currentUser) return;
 
-    if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url) ||
-        !key.startsWith("sb_publishable_")) {
-      cloudMessage("Proje URL'sini ve Publishable key'i kontrol et.");
+    const member = await client
+      .from("app_members")
+      .select("couple_id")
+      .eq("user_id", currentUser.id)
+      .maybeSingle();
+
+    if (member.error) {
+      status("Ortak alan okunamadı: " + member.error.message);
       return;
     }
 
-    try {
-      cloudMessage("Bağlanıyor...");
-      await loadCloudLibrary();
-      cloudClient = window.supabase.createClient(url, key);
-      localStorage.setItem("bizimCloudConfig", JSON.stringify({url, key}));
-
-      const {data, error} = await cloudClient.auth.getSession();
-      if (error) throw error;
-
-      cloudUser = data.session?.user || null;
-      cloudUI();
-
-      if (cloudUser) await cloudLoadRoom();
-      cloudMessage("Bağlantı hazır. Hesap oluşturabilir veya giriş yapabilirsin.");
-    } catch (e) {
-      cloudMessage("Bağlantı hatası: " + e.message);
-    }
-  };
-
-  window.cloudSignUp = async function () {
-    if (!cloudClient) return cloudMessage("Önce bağlantıyı kaydet.");
-    const email = document.getElementById("cloudEmail").value.trim();
-    const password = document.getElementById("cloudPassword").value;
-    if (!email || password.length < 6)
-      return cloudMessage("E-posta ve en az 6 karakterli şifre gir.");
-
-    const {data, error} = await cloudClient.auth.signUp({email, password});
-    if (error) return cloudMessage(error.message);
-
-    cloudUser = data.user;
-    cloudUI();
-    cloudMessage(data.session
-      ? "Hesap oluşturuldu. ❤️"
-      : "Kayıt oluşturuldu. E-postanı doğrula, ardından giriş yap.");
-  };
-
-  window.cloudSignIn = async function () {
-    if (!cloudClient) return cloudMessage("Önce bağlantıyı kaydet.");
-    const email = document.getElementById("cloudEmail").value.trim();
-    const password = document.getElementById("cloudPassword").value;
-
-    const {data, error} = await cloudClient.auth.signInWithPassword({email, password});
-    if (error) return cloudMessage(error.message);
-
-    cloudUser = data.user;
-    cloudUI();
-    await cloudLoadRoom();
-    cloudMessage("Giriş başarılı. ❤️");
-  };
-
-  async function cloudLoadRoom() {
-    if (!cloudClient || !cloudUser) return;
-
-    const {data, error} = await cloudClient
-      .from("app_members")
-      .select("couple_id")
-      .eq("user_id", cloudUser.id)
-      .maybeSingle();
-
-    if (error) return cloudMessage("Ortak alan okunamadı: " + error.message);
-
-    if (!data) {
-      cloudCouple = null;
-      document.getElementById("cloudRoomInfo").textContent =
+    if (!member.data) {
+      el("cloudRoomInfo").textContent =
         "Henüz ortak alanın yok. Oluşturabilir veya davet koduyla katılabilirsin.";
       return;
     }
 
-    cloudCouple = data.couple_id;
-
-    const room = await cloudClient
+    const room = await client
       .from("app_couples")
-      .select("id,invite_code")
-      .eq("id", cloudCouple)
+      .select("id, invite_code")
+      .eq("id", member.data.couple_id)
       .single();
 
-    if (room.error) return cloudMessage(room.error.message);
+    if (room.error) {
+      status("Ortak alan bilgisi alınamadı: " + room.error.message);
+      return;
+    }
 
-    document.getElementById("cloudRoomInfo").textContent =
+    el("cloudRoomInfo").textContent =
       "Ortak alanın hazır ❤️ Davet kodun: " + room.data.invite_code;
   }
 
-  window.cloudCreateRoom = async function () {
-    if (!cloudClient || !cloudUser) return cloudMessage("Önce giriş yap.");
+  el("cloudConnectButton").onclick = async function () {
+    const url = el("cloudUrl").value.trim().replace(/\/+$/, "");
+    const key = el("cloudKey").value.trim();
 
-    const {error} = await cloudClient.rpc("create_couple");
-    if (error) return cloudMessage("Ortak alan oluşturulamadı: " + error.message);
+    if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url) ||
+        !key.startsWith("sb_publishable_")) {
+      status("Supabase URL'sini ve Publishable key'i kontrol et.");
+      return;
+    }
 
-    await cloudLoadRoom();
+    try {
+      status("Bağlanıyor...");
+      await loadSupabaseLibrary();
+
+      client = window.supabase.createClient(url, key);
+
+      localStorage.setItem(
+        "bizimCloudConfig",
+        JSON.stringify({url, key})
+      );
+
+      const result = await client.auth.getSession();
+      if (result.error) throw result.error;
+
+      currentUser = result.data.session?.user || null;
+      updateAuthUI();
+
+      if (currentUser) await loadRoom();
+
+      status("Supabase bağlantısı hazır.");
+    } catch (error) {
+      status("Bağlantı hatası: " + error.message);
+    }
   };
 
-  window.cloudJoinRoom = async function () {
-    if (!cloudClient || !cloudUser) return cloudMessage("Önce giriş yap.");
+  el("cloudSignUpButton").onclick = async function () {
+    if (!client) return status("Önce bağlantıyı kaydet.");
 
-    const code = document.getElementById("cloudInvite").value.trim().toUpperCase();
-    if (!code) return cloudMessage("Davet kodunu gir.");
+    const email = el("cloudEmail").value.trim();
+    const password = el("cloudPassword").value;
 
-    const {error} = await cloudClient.rpc("join_couple", {
+    if (!email || password.length < 6) {
+      return status("E-posta ve en az 6 karakterli şifre gir.");
+    }
+
+    const result = await client.auth.signUp({email, password});
+
+    if (result.error) return status(result.error.message);
+
+    currentUser = result.data.session?.user || null;
+    updateAuthUI();
+
+    status(currentUser
+      ? "Hesap oluşturuldu. ❤️"
+      : "Hesap oluşturuldu. E-postanı doğrulayıp giriş yap.");
+  };
+
+  el("cloudSignInButton").onclick = async function () {
+    if (!client) return status("Önce bağlantıyı kaydet.");
+
+    const result = await client.auth.signInWithPassword({
+      email: el("cloudEmail").value.trim(),
+      password: el("cloudPassword").value
+    });
+
+    if (result.error) return status(result.error.message);
+
+    currentUser = result.data.user;
+    updateAuthUI();
+    await loadRoom();
+    status("Giriş başarılı. ❤️");
+  };
+
+  el("cloudCreateButton").onclick = async function () {
+    if (!client || !currentUser) return status("Önce giriş yap.");
+
+    const result = await client.rpc("create_couple");
+
+    if (result.error) {
+      return status("Ortak alan oluşturulamadı: " + result.error.message);
+    }
+
+    await loadRoom();
+  };
+
+  el("cloudJoinButton").onclick = async function () {
+    if (!client || !currentUser) return status("Önce giriş yap.");
+
+    const code = el("cloudInvite").value.trim().toUpperCase();
+    if (!code) return status("Davet kodunu gir.");
+
+    const result = await client.rpc("join_couple", {
       p_invite_code: code
     });
 
-    if (error) return cloudMessage("Katılım başarısız: " + error.message);
-
-    await cloudLoadRoom();
-    cloudMessage("Ortak alana katılma işlemi tamamlandı. ❤️");
-  };
-
-  window.cloudSignOut = async function () {
-    if (cloudClient) await cloudClient.auth.signOut();
-    cloudUser = null;
-    cloudCouple = null;
-    cloudUI();
-    document.getElementById("cloudRoomInfo").textContent = "";
-    cloudMessage("Çıkış yapıldı.");
-  };
-
-  window.addEventListener("load", async () => {
-    const saved = JSON.parse(localStorage.getItem("bizimCloudConfig") || "null");
-    if (saved) {
-      document.getElementById("cloudUrl").value = saved.url;
-      document.getElementById("cloudKey").value = saved.key;
-      await window.cloudConnect();
+    if (result.error) {
+      return status("Katılım başarısız: " + result.error.message);
     }
-  });
-})();
 
-/* HESAP SEKME TIKLAMA DUZELTMESI */
-(function () {
-  const tab = document.getElementById("accountTab");
-  const account = document.getElementById("account");
-
-  if (!tab || !account) return;
-
-  tab.onclick = function () {
-    document.querySelectorAll(".page").forEach(function (p) {
-      p.classList.remove("active");
-    });
-
-    account.classList.add("active");
-
-    document.querySelectorAll("nav button").forEach(function (b) {
-      b.classList.remove("active");
-    });
-
-    tab.classList.add("active");
-    window.scrollTo(0, 0);
+    await loadRoom();
+    status("Ortak alana katıldın. ❤️");
   };
-})();
 
+  el("cloudSignOutButton").onclick = async function () {
+    if (client) await client.auth.signOut();
 
-/* HESAP SEKME SON DUZELTME */
-(function () {
-  const tab = document.getElementById("accountTab");
-  const account = document.getElementById("account");
+    currentUser = null;
+    updateAuthUI();
+    el("cloudRoomInfo").textContent = "";
+    status("Çıkış yapıldı.");
+  };
 
-  if (!tab || !account) {
-    console.error("Hesap sekmesi veya sayfasi bulunamadi");
-    return;
+  async function restoreConnection() {
+    const saved = JSON.parse(
+      localStorage.getItem("bizimCloudConfig") || "null"
+    );
+
+    if (!saved) return;
+
+    el("cloudUrl").value = saved.url;
+    el("cloudKey").value = saved.key;
+    el("cloudConnectButton").click();
   }
 
-  tab.onclick = function () {
-    document.querySelectorAll(".page").forEach(function (p) {
-      p.classList.remove("active");
-      p.style.display = "none";
-    });
-
-    account.classList.add("active");
-    account.style.display = "block";
-
-    document.querySelectorAll("nav button").forEach(function (b) {
-      b.classList.remove("active");
-    });
-
-    tab.classList.add("active");
-    window.scrollTo(0, 0);
-  };
+  restoreConnection();
 })();
+
 </script>
 
 </body>
