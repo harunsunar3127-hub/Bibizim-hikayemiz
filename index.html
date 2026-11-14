@@ -1135,6 +1135,32 @@ if("serviceWorker" in navigator){
   };
 })();
 
+/* HESAP SAYFASINI DOĞRUDAN AC */
+document.addEventListener("DOMContentLoaded", function () {
+  const tab = document.getElementById("accountTab");
+  const account = document.getElementById("account");
+
+  if (!tab || !account) return;
+
+  tab.onclick = function (event) {
+    event.preventDefault();
+
+    document.querySelectorAll(".page").forEach(function (item) {
+      item.classList.remove("active");
+    });
+
+    account.classList.add("active");
+    account.style.display = "block";
+
+    document.querySelectorAll("nav button").forEach(function (button) {
+      button.classList.remove("active");
+    });
+
+    tab.classList.add("active");
+    window.scrollTo(0, 0);
+  };
+});
+
 </script>
 
 </body>
