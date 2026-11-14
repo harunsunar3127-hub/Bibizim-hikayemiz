@@ -1,0 +1,13 @@
+
+{
+  "name": "Bizim Hikâyemiz",
+  "short_name": "Bizim Aşkımız",
+  "description": "İki kalbin ortak hikâyesi",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff2f6",
+  "theme_color": "#f7b8cc",
+  "icons": []
+}

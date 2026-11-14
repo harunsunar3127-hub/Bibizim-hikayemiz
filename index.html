@@ -1,0 +1,708 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f7b8cc">
+<meta name="description" content="Bizim Hikâyemiz, iki kalbin ortak hikâyesi.">
+<link rel="manifest" href="manifest.json">
+<title>Bizim Hikâyemiz ❤️</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;
+ background:#fff2f6;
+ color:#593747;
+ font-family:Arial,sans-serif;
+ padding-bottom:85px;
+}
+header{
+ text-align:center;
+ padding:28px 18px;
+ background:linear-gradient(135deg,#f5aec5,#ffe5ed);
+ border-radius:0 0 30px 30px;
+}
+header h1{color:#a83261;margin:8px}
+header p{color:#805366}
+.container{max-width:500px;margin:auto;padding:15px}
+.card{
+ background:white;
+ padding:20px;
+ margin:15px 0;
+ border-radius:21px;
+ box-shadow:0 5px 17px #ead5de;
+}
+h2,h3{color:#c44876}
+h3{text-align:center}
+.counter{
+ text-align:center;
+ background:linear-gradient(135deg,#fff0f5,#ffe0eb);
+ border-radius:18px;
+ padding:18px;
+}
+.counter h2{font-size:44px;margin:12px}
+.muted{color:#987989;font-size:13px}
+button{
+ border:0;
+ border-radius:12px;
+ padding:14px;
+ background:#d94f7d;
+ color:white;
+ font-size:15px;
+ width:100%;
+ margin-top:10px;
+ cursor:pointer;
+}
+button:active{transform:scale(.98)}
+.secondary{background:#f9dce6;color:#a6315d}
+.result{
+ background:#fff0f5;
+ padding:17px;
+ border-radius:15px;
+ text-align:center;
+ line-height:1.7;
+ margin-top:12px;
+}
+.love{
+ background:linear-gradient(145deg,#fff0f5,#ffe1eb);
+ padding:22px 17px;
+ border-radius:18px;
+ text-align:center;
+ line-height:1.8;
+ margin-top:13px;
+}
+.love strong{
+ display:block;
+ color:#bd376b;
+ font-size:21px;
+ margin-bottom:10px;
+}
+input,textarea,select{
+ width:100%;
+ padding:13px;
+ margin-top:10px;
+ border:1px solid #e9c6d3;
+ border-radius:10px;
+ font-size:15px;
+ background:#fffafd;
+ color:#593747;
+ font-family:Arial,sans-serif;
+}
+textarea{min-height:90px}
+.grid{
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:11px;
+}
+.tile{
+ background:#fff0f5;
+ color:#a6315d;
+ min-height:105px;
+}
+.tile span{display:block;font-size:27px;margin-bottom:8px}
+.page{display:none}
+.page.active{display:block}
+.memory{
+ background:#fff0f5;
+ padding:14px;
+ border-radius:13px;
+ margin-top:12px;
+ overflow-wrap:anywhere;
+ line-height:1.6;
+}
+.memory img{width:100%;border-radius:10px;margin-top:10px}
+.delete{background:#ead5df;color:#753d55}
+nav{
+ position:fixed;
+ bottom:0;
+ left:0;
+ right:0;
+ display:flex;
+ background:white;
+ box-shadow:0 -3px 15px #ead5de;
+ justify-content:space-around;
+ padding:9px 2px calc(9px + env(safe-area-inset-bottom));
+ z-index:10;
+}
+nav button{
+ width:20%;
+ background:transparent;
+ color:#a35b78;
+ font-size:11px;
+ margin:0;
+ padding:8px 2px;
+}
+nav button.active{color:#d33f75;font-weight:bold}
+footer{text-align:center;padding:25px;color:#b16c87}
+.note{font-size:12px;color:#987989;line-height:1.5}
+</style>
+</head>
+
+<body>
+
+<header>
+ <div style="font-size:45px">❤️</div>
+ <h1>Bizim Hikâyemiz</h1>
+ <p>İki kalp, tek bir hikâye...</p>
+ <p id="todayText"></p>
+</header>
+
+<main class="container">
+
+<!-- ANA SAYFA -->
+<section class="page active" id="home">
+
+ <div class="card">
+  <div class="counter">
+   <p>Birlikte geçirdiğimiz günler ❤️</p>
+   <h2 id="dayCount">0</h2>
+   <p>22 Mart 2024'ten beri...</p>
+   <p id="anniversary" class="muted"></p>
+  </div>
+ </div>
+
+ <div class="card">
+  <h3>🌹 Günün romantik sözü</h3>
+  <div class="love" id="dailyMessage"></div>
+  <button class="secondary" onclick="newDailyMessage()">
+   Başka bir güzel söz ❤️
+  </button>
+ </div>
+
+ <div class="card">
+  <h3>💕 Bizim dünyamız</h3>
+  <div class="grid">
+   <button class="tile" onclick="showPage('love')">
+    <span>💌</span>Güzel sözler
+   </button>
+   <button class="tile" onclick="showPage('games')">
+    <span>🎮</span>Çift oyunları
+   </button>
+   <button class="tile" onclick="showPage('memories')">
+    <span>📸</span>Anı defterimiz
+   </button>
+   <button class="tile" onclick="showPage('dates')">
+    <span>🎲</span>Randevu ruleti
+   </button>
+  </div>
+ </div>
+
+ <div class="card">
+  <h3>💗 Bugünün küçük hatırlatması</h3>
+  <div class="result">
+   Birbirinize güzel bir söz söylemeyi unutmayın.
+   Küçük mutluluklar büyük hikâyeler oluşturur. ❤️
+  </div>
+ </div>
+
+</section>
+
+<!-- AŞK MERKEZİ -->
+<section class="page" id="love">
+
+ <div class="card">
+  <h3>💌 Sana Bir Sözüm Var</h3>
+  <p class="muted">Eşine bugün güzel bir şey söyle.</p>
+
+  <select id="category">
+   <option value="all">Bütün mesajlar</option>
+   <option value="love">❤️ Aşk ve romantizm</option>
+   <option value="marriage">💍 Evlilik</option>
+   <option value="beauty">🌹 Güzellik ve karakter</option>
+   <option value="longing">🫶 Özlem</option>
+   <option value="support">💗 Moral ve destek</option>
+   <option value="playful">😘 Şımartan sözler</option>
+  </select>
+
+  <div class="love" id="loveMessage">
+   <strong>Canım karım ❤️</strong>
+   Seninle hayat daha güzel.
+  </div>
+
+  <button onclick="newLoveMessage()">💗 Bana bir söz daha ver</button>
+  <button class="secondary" onclick="saveFavorite()">⭐ Favorilerime ekle</button>
+
+  <h3>⭐ Favori sözlerim</h3>
+  <div id="favorites"></div>
+ </div>
+
+ <div class="card">
+  <h3>✍️ Kendi mesajımızı yazalım</h3>
+  <input id="customGreeting" placeholder="Hitap: Canım karım...">
+  <textarea id="customMessage" placeholder="Ona söylemek istediğin söz..."></textarea>
+  <button onclick="saveCustomMessage()">Mesajımı kaydet ❤️</button>
+  <div id="customList"></div>
+ </div>
+
+</section>
+
+<!-- OYUNLAR -->
+<section class="page" id="games">
+ <div class="card">
+  <h3>🎮 Birbirimizi ne kadar tanıyoruz?</h3>
+  <p class="muted">Sırayla cevap verin.</p>
+  <div class="love" id="gameQuestion">Hazır mısınız? ❤️</div>
+  <button onclick="nextQuestion()">Yeni soru getir</button>
+ </div>
+
+ <div class="card">
+  <h3>💕 Romantik görevler</h3>
+  <div class="result" id="taskResult">Bugünün görevi seni bekliyor.</div>
+  <button onclick="newTask()">Görevimi öğren</button>
+  <button class="secondary" onclick="completeTask()">Görevi tamamladık ❤️</button>
+  <p id="taskScore" class="muted">Tamamlanan görev: 0</p>
+ </div>
+</section>
+
+<!-- ANILAR -->
+<section class="page" id="memories">
+ <div class="card">
+  <h3>📸 Bizim anı defterimiz</h3>
+  <input type="date" id="memoryDate">
+  <input type="text" id="memoryTitle" placeholder="Anının başlığı">
+  <textarea id="memoryNote" placeholder="Bu güzel günü anlat..."></textarea>
+  <input type="file" id="memoryPhoto" accept="image/*">
+  <button onclick="saveMemory()">Anımızı kaydet ❤️</button>
+  <p class="note">Fotoğraflar için 1,5 MB sınırı uygulanır.</p>
+  <div id="memoryList"></div>
+ </div>
+</section>
+
+<!-- RANDEVU -->
+<section class="page" id="dates">
+ <div class="card">
+  <h3>🎲 Randevu ruleti</h3>
+  <p>Bugün birlikte ne yapalım?</p>
+  <div class="love" id="dateResult">Güzel bir plan seni bekliyor...</div>
+  <button onclick="newDate()">Şansımızı deneyelim 💕</button>
+ </div>
+</section>
+
+<footer>Sonsuza kadar bizim hikâyemiz... ❤️</footer>
+</main>
+
+<nav>
+ <button class="active" onclick="showPage('home',this)">🏠<br>Ana sayfa</button>
+ <button onclick="showPage('love',this)">💌<br>Aşk</button>
+ <button onclick="showPage('games',this)">🎮<br>Oyunlar</button>
+ <button onclick="showPage('memories',this)">📸<br>Anılar</button>
+ <button onclick="showPage('dates',this)">🎲<br>Randevu</button>
+</nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script> 
+const SUPABASE_URL = "https://paueaiurqkikexcphyya.supabase.co";
+const SUPABASE_KEY = "sb_publishable__nji1DCYNwOwadmPC0bHbw_fyLNnLQX";
+
+const testMesaji = document.createElement("div");
+testMesaji.textContent = "JavaScript çalışıyor! ❤️";
+testMesaji.style.cssText = "background:#f5b8cc;padding:20px;text-align:center;font-size:20px;";
+document.body.prepend(testMesaji);const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+
+console.log("Supabase bağlantı istemcisi hazır:", !!supabaseClient);
+
+supabaseClient
+  .from("app_couples")
+  .select("id")
+  .limit(1)
+  .then(({ data, error }) => {
+  if (error) {
+    alert("Supabase yanıt verdi ama sorgu hatası: " + error.message);
+  } else {
+    alert("Supabase bağlantısı başarılı! ❤️");
+  }
+});
+  // SAYFA GEÇİŞLERİ
+function showPage(id,button){
+ document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+ document.getElementById(id).classList.add("active");
+ document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+ if(button)button.classList.add("active");
+ else{
+  document.querySelectorAll("nav button").forEach(b=>{
+   if(b.textContent.includes(id==="home"?"Ana sayfa":id==="love"?"Aşk":id==="games"?"Oyunlar":id==="memories"?"Anılar":"Randevu"))b.classList.add("active");
+  });
+ }
+ window.scrollTo(0,0);
+}
+
+// TARİH
+function updateDays(){
+ const start=new Date(2024,2,22);
+ const today=new Date();
+ start.setHours(0,0,0,0);
+ today.setHours(0,0,0,0);
+ const days=Math.floor((today-start)/86400000);
+ document.getElementById("dayCount").textContent=Math.max(0,days);
+
+ let next=new Date(today.getFullYear(),2,22);
+ if(next<=today)next.setFullYear(next.getFullYear()+1);
+ const remaining=Math.ceil((next-today)/86400000);
+ document.getElementById("anniversary").textContent=
+ remaining===0?"Bugün yıl dönümünüz! ❤️":"Yıl dönümünüze "+remaining+" gün kaldı ❤️";
+
+ document.getElementById("todayText").textContent=
+ today.toLocaleDateString("tr-TR",{day:"numeric",month:"long",year:"numeric"});
+}
+updateDays();
+
+// HİTAPLAR
+const greetings=[
+ "Aşkım","Bir tanem","Canım karım","Hayatım",
+ "Güzelim","Prensesim","Ömrüm","Ruh eşim",
+ "Her şeyim","Dünyam","Kalbimin sahibi",
+ "En kıymetlim","Sevgilim","Meleğim"
+];
+
+// 60 MESAJ
+const messages=[
+["love","Seninle tanıştığım gün hayatımın en güzel hikâyesi başladı."],
+["love","Kalbimde öyle güzel bir yerin var ki, oraya senden başkasını yakıştıramıyorum."],
+["love","Seni sevmek hayatımın en güzel alışkanlığı oldu."],
+["love","Sen yanımdayken dünya daha güzel."],
+["love","Gözlerine baktığımda hâlâ ilk günkü heyecanı hissediyorum."],
+["love","Her sabah seni sevmek için yeni bir sebep buluyorum."],
+["love","Sen benim en güzel tesadüfüm ve en güzel gerçeğimsin."],
+["love","Kalbimin en güzel köşesinde hep sen varsın."],
+["love","Sana her baktığımda iyi ki diyorum."],
+["love","Seninle geçen her an benim için kıymetli."],
+["marriage","Seninle sadece bir hayatı değil, binlerce güzel anıyı paylaşmak istiyorum."],
+["marriage","İyi günde de zor günde de elini bırakmamak benim en güzel sözüm."],
+["marriage","Birlikte yaşlanmak seninle kurduğum en güzel hayal."],
+["marriage","22 Mart 2024'te başlayan hikâyemizin sonsuza kadar sürmesini istiyorum."],
+["marriage","Eşim olman hayatımın en güzel hediyesi."],
+["marriage","Her yeni güne seninle uyanmak en güzel dileğim."],
+["marriage","Bir ömür aynı yolda yürümek istiyorum."],
+["marriage","Seninle kurduğumuz yuvanın her günü güzel olsun."],
+["marriage","Hayat arkadaşım olduğun için teşekkür ederim."],
+["marriage","Sana verdiğim sevgiyi her gün büyütmek istiyorum."],
+["beauty","Gülüşün bütün yorgunluğumu unutturuyor."],
+["beauty","Güzelliğin gözlerime, kalbin ruhuma dokunuyor."],
+["beauty","Seni güzel yapan yalnızca yüzün değil, kalbin."],
+["beauty","Sen güldüğünde en sevdiğim manzara karşıma çıkıyor."],
+["beauty","Dünyada milyonlarca insan var ama benim gözüm hep seni arıyor."],
+["beauty","En doğal halinle bile benim için çok güzelsin."],
+["beauty","İçindeki iyilik seni daha da özel yapıyor."],
+["beauty","Sesin bile günümü güzelleştirmeye yetiyor."],
+["beauty","Senin zarafetine ve kalbine hayranım."],
+["beauty","Gülüşünün bende bıraktığı mutluluğu tarif edemem."],
+["longing","Yanımda olmadığında bile aklımın en güzel yerindesin."],
+["longing","Sana sarılmak bazen bütün kelimelerden daha güzel."],
+["longing","Özlemek bile güzel çünkü özlediğim kişi sensin."],
+["longing","Bir an önce yanında olup sana sımsıkı sarılmak istiyorum."],
+["longing","Aramızda mesafe olsa da kalbim hep yanında."],
+["longing","Sesini duymak bile içimi huzurla dolduruyor."],
+["longing","Sana kavuşacağım anı sabırsızlıkla bekliyorum."],
+["longing","En sevdiğim yer senin yanın."],
+["longing","Bir sarılmana bütün özlemim geçer."],
+["longing","Kalbim her zaman sana doğru yol alıyor."],
+["support","Ne yaşarsak yaşayalım, aynı takımdayız. Yanındayım."],
+["support","Kendini yorgun hissettiğinde omzumu sana yaslayabilirsin."],
+["support","Her zaman güçlü olmak zorunda değilsin. Birlikte aşarız."],
+["support","Senin mutluluğun benim için çok kıymetli."],
+["support","Dünyanın en zor gününde bile yalnız değilsin."],
+["support","Seni dinlemek ve anlamak için her zaman buradayım."],
+["support","Birlikte her zorluğun üstesinden gelebiliriz."],
+["support","Kendine inan, ben sana inanıyorum."],
+["support","Senin huzurun benim için önemli."],
+["support","Her şey mükemmel olmak zorunda değil, yeter ki birlikte olalım."],
+["playful","Bugün de dünyanın en güzel kadınını seviyorum."],
+["playful","Kalbimi çalan hırsız, üstüne bir de kalbimin sahibi oldu."],
+["playful","Sana her baktığımda yeniden âşık oluyorum."],
+["playful","Bir ömür seni şımartmak için yeterli mi acaba?"],
+["playful","Uyarı: Fazla güzelsin, dikkatimi dağıtıyorsun."],
+["playful","Seni öpmek için bahane aramama gerek yok."],
+["playful","Güzelliğine bakmaya doyamıyorum."],
+["playful","Sen benim en tatlı zaafımsın."],
+["playful","Bugün de kalbimi çalmayı başardın."],
+["playful","Sana kızsam bile beş dakika sonra yine sarılmak isterim."]
+];
+
+function getRandom(arr){
+ return arr[Math.floor(Math.random()*arr.length)];
+}
+
+let currentMessage=null;
+
+function renderMessage(msg){
+ currentMessage=msg;
+ const el=document.getElementById("loveMessage");
+ el.innerHTML="";
+ const title=document.createElement("strong");
+ title.textContent=getRandom(greetings)+" ❤️";
+ const text=document.createElement("div");
+ text.textContent=msg[1];
+ el.append(title,text);
+}
+
+function newLoveMessage(){
+ const category=document.getElementById("category").value;
+ const filtered=messages.filter(m=>category==="all"||m[0]===category);
+ renderMessage(getRandom(filtered));
+}
+
+// GÜNÜN SÖZÜ
+function newDailyMessage(){
+ const dayKey=new Date().toLocaleDateString("en-CA");
+ let saved=localStorage.getItem("dailyLove");
+ let msg;
+ try{
+  const data=JSON.parse(saved);
+  if(data&&data.day===dayKey)msg=data.message;
+ }catch(e){}
+ if(!msg){
+  msg=getRandom(messages);
+  localStorage.setItem("dailyLove",JSON.stringify({day:dayKey,message:msg}));
+ }
+ const el=document.getElementById("dailyMessage");
+ el.innerHTML="";
+ const title=document.createElement("strong");
+ title.textContent=getRandom(greetings)+" ❤️";
+ const text=document.createElement("div");
+ text.textContent=msg[1];
+ el.append(title,text);
+}
+newDailyMessage();
+
+// FAVORİLER
+function getFavorites(){
+ return JSON.parse(localStorage.getItem("favorites")||"[]");
+}
+function saveFavorite(){
+ if(!currentMessage){alert("Önce bir söz seç.");return;}
+ const fav=getFavorites();
+ if(!fav.some(x=>x[1]===currentMessage[1])){
+  fav.unshift(currentMessage);
+  localStorage.setItem("favorites",JSON.stringify(fav));
+ }
+ showFavorites();
+ alert("Favorilerine eklendi ❤️");
+}
+function showFavorites(){
+ const el=document.getElementById("favorites");
+ el.innerHTML="";
+ getFavorites().forEach((m,i)=>{
+  const box=document.createElement("div");
+  box.className="memory";
+  const p=document.createElement("p");
+  p.textContent=m[1];
+  const b=document.createElement("button");
+  b.className="delete";
+  b.textContent="Favoriden kaldır";
+  b.onclick=()=>{
+   const f=getFavorites();
+   f.splice(i,1);
+   localStorage.setItem("favorites",JSON.stringify(f));
+   showFavorites();
+  };
+  box.append(p,b);
+  el.append(box);
+ });
+}
+showFavorites();
+
+// KENDİ MESAJLARIN
+function showCustom(){
+ const el=document.getElementById("customList");
+ el.innerHTML="";
+ const list=JSON.parse(localStorage.getItem("customMessages")||"[]");
+ list.forEach((m,i)=>{
+  const box=document.createElement("div");
+  box.className="memory";
+  const title=document.createElement("strong");
+  title.textContent=m.greeting||"Canım karım ❤️";
+  const p=document.createElement("p");
+  p.textContent=m.message;
+  const b=document.createElement("button");
+  b.className="delete";
+  b.textContent="Sil";
+  b.onclick=()=>{
+   const a=JSON.parse(localStorage.getItem("customMessages")||"[]");
+   a.splice(i,1);
+   localStorage.setItem("customMessages",JSON.stringify(a));
+   showCustom();
+  };
+  box.append(title,p,b);
+  el.append(box);
+ });
+}
+function saveCustomMessage(){
+ const greeting=document.getElementById("customGreeting").value.trim();
+ const message=document.getElementById("customMessage").value.trim();
+ if(!message){alert("Mesajını yaz.");return;}
+ const list=JSON.parse(localStorage.getItem("customMessages")||"[]");
+ list.unshift({greeting,message});
+ localStorage.setItem("customMessages",JSON.stringify(list));
+ document.getElementById("customGreeting").value="";
+ document.getElementById("customMessage").value="";
+ showCustom();
+ alert("Mesajın kaydedildi ❤️");
+}
+showCustom();
+
+// OYUN SORULARI
+const questions=[
+ "İlk tanıştığımız günü nasıl hatırlıyorsun?",
+ "Benim en sevdiğin özelliğim ne?",
+ "Birlikte gitmek istediğin ülke neresi?",
+ "Hayatımızın en güzel günü hangisiydi?",
+ "Bende seni en çok güldüren şey ne?",
+ "Birlikte gerçekleştirmek istediğin hayal ne?",
+ "Sana kendini en çok ne zaman özel hissettiriyorum?",
+ "Birlikte yaşlanınca nasıl bir hayatımız olsun?",
+ "İlk görüşte bende ne dikkatini çekmişti?",
+ "Birlikte yapmak istediğin çılgınlık ne?",
+ "Beni üç kelimeyle nasıl anlatırsın?",
+ "İkimizin en sevdiğin anısı hangisi?"
+];
+function nextQuestion(){
+ document.getElementById("gameQuestion").textContent=getRandom(questions);
+}
+
+// GÖREVLER
+const tasks=[
+ "Birbirinize beş güzel özellik söyleyin.",
+ "Birbirinize içten bir sarılma verin.",
+ "Birlikte en sevdiğiniz şarkıyı dinleyin.",
+ "Birbirinize küçük bir mektup yazın.",
+ "Birlikte eski fotoğraflarınıza bakın.",
+ "Birbirinize teşekkür etmek için bir sebep bulun.",
+ "Birbirinize bugün neden âşık olduğunuzu anlatın.",
+ "Birlikte yeni bir yemek deneyin."
+];
+function newTask(){
+ document.getElementById("taskResult").textContent=getRandom(tasks);
+}
+function completeTask(){
+ let score=Number(localStorage.getItem("taskScore")||0)+1;
+ localStorage.setItem("taskScore",score);
+ updateScore();
+ alert("Birlikte güzel bir görev tamamladınız! ❤️");
+}
+function updateScore(){
+ document.getElementById("taskScore").textContent=
+ "Tamamlanan görev: "+(localStorage.getItem("taskScore")||0);
+}
+updateScore();
+
+// ANI DEFTERİ
+function getMemories(){
+ return JSON.parse(localStorage.getItem("memories")||"[]");
+}
+function saveMemory(){
+ const title=document.getElementById("memoryTitle").value.trim();
+ const note=document.getElementById("memoryNote").value.trim();
+ const date=document.getElementById("memoryDate").value;
+ const file=document.getElementById("memoryPhoto").files[0];
+
+ if(!title||!note||!date){
+  alert("Tarih, başlık ve açıklama doldurulmalı.");
+  return;
+ }
+ if(file&&file.size>1500000){
+  alert("Fotoğraf 1,5 MB altında olmalı.");
+  return;
+ }
+ const save=(photo)=>{
+  const list=getMemories();
+  list.unshift({id:Date.now(),title,note,date,photo});
+  try{
+   localStorage.setItem("memories",JSON.stringify(list));
+  }catch(e){
+   alert("Hafıza doldu. Daha küçük bir fotoğraf deneyin.");
+   return;
+  }
+  document.getElementById("memoryTitle").value="";
+  document.getElementById("memoryNote").value="";
+  document.getElementById("memoryDate").value="";
+  document.getElementById("memoryPhoto").value="";
+  showMemories();
+  alert("Anın kaydedildi! ❤️");
+ };
+ if(file){
+  const reader=new FileReader();
+  reader.onload=()=>save(reader.result);
+  reader.onerror=()=>alert("Fotoğraf okunamadı.");
+  reader.readAsDataURL(file);
+ }else save("");
+}
+function showMemories(){
+ const el=document.getElementById("memoryList");
+ el.innerHTML="";
+ getMemories().forEach(m=>{
+  const box=document.createElement("div");
+  box.className="memory";
+  const title=document.createElement("h3");
+  title.textContent=m.title;
+  const date=document.createElement("small");
+  date.textContent=m.date;
+  const note=document.createElement("p");
+  note.textContent=m.note;
+  box.append(title,date,note);
+  if(m.photo){
+   const img=document.createElement("img");
+   img.src=m.photo;
+   img.alt="Anı fotoğrafı";
+   box.append(img);
+  }
+  const del=document.createElement("button");
+  del.className="delete";
+  del.textContent="Anıyı sil";
+  del.onclick=()=>deleteMemory(m.id);
+  box.append(del);
+  el.append(box);
+ });
+ if(!el.children.length)el.textContent="Henüz anınız yok. İlk anınızı ekleyin ❤️";
+}
+function deleteMemory(id){
+ if(!confirm("Bu anıyı silmek istiyor musunuz?"))return;
+ const list=getMemories().filter(m=>m.id!==id);
+ localStorage.setItem("memories",JSON.stringify(list));
+ showMemories();
+}
+showMemories();
+
+// RANDEVU
+const dates=[
+ "Birlikte romantik bir film izleyin.",
+ "Gece yürüyüşüne çıkın.",
+ "Birbirinize mektup yazın.",
+ "Birlikte yeni bir yemek deneyin.",
+ "Eski fotoğraflarınıza bakın.",
+ "Birlikte gün batımını izleyin.",
+ "Telefonları kapatıp birbirinize zaman ayırın.",
+ "Birbirinize küçük bir sürpriz hazırlayın.",
+ "Birlikte yeni bir yer keşfedin.",
+ "Evde romantik bir akşam hazırlayın."
+];
+function newDate(){
+ document.getElementById("dateResult").textContent=getRandom(dates);
+}
+
+// YIL DÖNÜMÜ ÖZEL MESAJI
+function anniversaryCheck(){
+ const today=new Date();
+ if(today.getMonth()===2&&today.getDate()===22){
+  document.getElementById("dailyMessage").textContent=
+  "İyi ki 22 Mart 2024'te başlayan hikâyemiz var. Nice güzel yıllara aşkım! ❤️";
+ }
+}
+anniversaryCheck();
+
+// PWA SERVİS WORKER
+if("serviceWorker" in navigator){
+ window.addEventListener("load",()=>{
+  navigator.serviceWorker.register("./sw.js").catch(err=>{
+   console.log("Service Worker kaydı yapılamadı:",err);
+  });
+ });
+}
+</script>
+
+</body>
+</html>
