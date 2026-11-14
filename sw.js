@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "bizim-hikayemiz-v6";
+const CACHE_NAME = "bizim-hikayemiz-v7";
 
 const FILES = [
   "./",
@@ -28,23 +28,46 @@ self.addEventListener("activate", event => {
 });
 
 self.addEventListener("fetch", event => {
-  if (event.request.method !== "GET") return;
+  const request = event.request;
+  const url = new URL(request.url);
 
+  if (request.method !== "GET") return;
+
+  // Harici sitelere ve Supabase isteklerine karışma.
+  if (url.origin !== self.location.origin) return;
+
+  // HTML sayfalarında önce güncel sürümü internetten al.
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then(cache =>
+              cache.put("./index.html", copy)
+            );
+          }
+          return response;
+        })
+        .catch(() => caches.match("./index.html"))
+    );
+    return;
+  }
+
+  // Diğer yerel dosyalarda önbelleği kullan.
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      return cached || fetch(event.request).then(response => {
-        if (
-          response &&
-          response.status === 200 &&
-          new URL(event.request.url).origin === self.location.origin
-        ) {
+    caches.match(request).then(cached => {
+      if (cached) return cached;
+
+      return fetch(request).then(response => {
+        if (response.ok) {
           const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, copy);
-          });
+          caches.open(CACHE_NAME).then(cache =>
+            cache.put(request, copy)
+          );
         }
         return response;
       });
-    }).catch(() => caches.match("./index.html"))
+    })
   );
 });
