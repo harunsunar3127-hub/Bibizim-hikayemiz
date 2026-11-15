@@ -1376,7 +1376,8 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
    if(result.error)throw result.error;
  }
  async function syncKey(key,value){
-   if(!client||!user||!coupleId||working)return;
+   if(!client||!user||!coupleId)return;
+   if(working){schedule(key,value);return;}
    try{const rows=await fetchRows(),deleted=new Set();rows.filter(r=>r.item_type==="snapshot:"+key).forEach(r=>(Array.isArray(r.content?.deleted)?r.content.deleted:[]).forEach(x=>deleted.add(x)));
      const previous=last[key]?JSON.parse(last[key]):null;
      if(Array.isArray(previous)&&Array.isArray(value)){const now=new Set(value.map(identity));previous.forEach(item=>{const id=identity(item);if(!now.has(id))deleted.add(id);});}
