@@ -162,6 +162,13 @@ footer{text-align:center;padding:25px;color:#b16c87}
 
 <section class="page active" id="home">
 
+ <div class="card" id="pwaInstallCard">
+  <h3>📲 Telefonuna ekle</h3>
+  <p class="muted">Bizim Hikâyemiz'i telefonunda uygulama simgesiyle açabilirsin.</p>
+  <button class="secondary" type="button" onclick="installPwaApp()">Ana ekrana ekle ❤️</button>
+  <p class="note" id="pwaInstallStatus">Yükleme seçeneği açılmazsa Chrome menüsünden “Ana ekrana ekle”yi seç.</p>
+ </div>
+
  <div class="card">
   <div class="counter">
    <p>Birlikte geçirdiğimiz günler ❤️</p>
@@ -894,6 +901,29 @@ function anniversaryCheck(){
  }
 }
 anniversaryCheck();
+
+let deferredPwaPrompt=null;
+window.addEventListener("beforeinstallprompt",event=>{
+ event.preventDefault();
+ deferredPwaPrompt=event;
+});
+async function installPwaApp(){
+ const status=document.getElementById("pwaInstallStatus");
+ if(deferredPwaPrompt){
+  try{
+   deferredPwaPrompt.prompt();
+   const choice=await deferredPwaPrompt.userChoice;
+   status.textContent=choice.outcome==="accepted"?"Uygulama ekleme işlemi başlatıldı. ❤️":"İstediğin zaman tekrar deneyebilirsin.";
+  }catch(e){status.textContent="Chrome menüsünden “Ana ekrana ekle” seçeneğini kullanabilirsin.";}
+  deferredPwaPrompt=null;
+ }else{
+  status.textContent="Chrome'da sağ üstteki üç noktaya dokun ve “Ana ekrana ekle” veya “Uygulamayı yükle” seçeneğini seç.";
+ }
+}
+window.addEventListener("appinstalled",()=>{
+ const status=document.getElementById("pwaInstallStatus");
+ if(status)status.textContent="Bizim Hikâyemiz telefonuna eklendi. ❤️";
+});
 
 if("serviceWorker" in navigator){
  window.addEventListener("load",()=>{
