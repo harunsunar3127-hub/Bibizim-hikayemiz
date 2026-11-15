@@ -1176,12 +1176,28 @@ if("serviceWorker" in navigator){
   };
 
   el("cloudSignOutButton").onclick = async function () {
-    if (client) await client.auth.signOut();
+    try {
+      status("Güvenli çıkış yapılıyor...");
+      // Giriş ekranının kullandığı istemciyi de kapat; böylece özel alan kilitlenir.
+      const gateClient = window.__bhClient;
+      if (gateClient) {
+        const result = await gateClient.auth.signOut();
+        if (result.error) throw result.error;
+      } else if (client) {
+        const result = await client.auth.signOut();
+        if (result.error) throw result.error;
+      }
 
-    currentUser = null;
-    updateAuthUI();
-    el("cloudRoomInfo").textContent = "";
-    status("Çıkış yapıldı.");
+      currentUser = null;
+      updateAuthUI();
+      el("cloudRoomInfo").textContent = "";
+      document.body.classList.add("private-locked");
+      const gate = document.getElementById("privateGate");
+      if (gate) gate.style.display = "flex";
+      status("Çıkış yapıldı. Yeniden giriş yapabilirsin.");
+    } catch (error) {
+      status("Çıkış yapılamadı: " + (error.message || "Bilinmeyen hata"));
+    }
   };
 
   async function restoreConnection() {
