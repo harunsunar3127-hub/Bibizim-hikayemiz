@@ -647,6 +647,7 @@ function updateScore(){
 updateScore();
 
 function getMemories(){return read("memories");}
+let memoriesRenderVersion=0;
 async function saveMemory(){
  const title=document.getElementById("memoryTitle").value.trim();
  const note=document.getElementById("memoryNote").value.trim();
@@ -696,6 +697,7 @@ async function saveMemory(){
  alert("Anın kaydedildi! ❤️");
 }
 async function showMemories(){
+ const renderVersion=++memoriesRenderVersion;
  const el=document.getElementById("memoryList");
  el.innerHTML="";
  const memories=getMemories();
@@ -711,6 +713,7 @@ async function showMemories(){
     const path=m.photo.slice(10);const client=window.__bhClient;
     if(client){
      const signed=await client.storage.from("couple-photos").createSignedUrl(path,3600);
+     if(renderVersion!==memoriesRenderVersion)return;
      if(!signed.error)img.src=signed.data.signedUrl;
      else img.alt="Fotoğraf açılamadı; depolama erişimini kontrol edin.";
     }else img.alt="Fotoğrafı görmek için yeniden giriş yap.";

@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "bizim-hikayemiz-v10";
+const CACHE_NAME = "bizim-hikayemiz-v11";
 
 const FILES = [
   "./",
