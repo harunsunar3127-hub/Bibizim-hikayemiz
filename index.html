@@ -1265,7 +1265,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
 /* ===== BIZIM HIKAYEMIZ: ORTAK VERI SENKRONIZASYONU ===== */
 (function(){
  const KEYS=["favorites","customMessages","taskScore","memories","dailyLove","feelings","letters","plans","watchlist"];
- let client=null,user=null,coupleId=null,channel=null,working=false,timer=null;
+ let client=null,user=null,coupleId=null,channel=null,working=false;const timers={};
  const last={};
  const originalWrite=window.write;
  function identity(v){return v&&typeof v==="object"&&v.id!=null?"id:"+v.id:"value:"+JSON.stringify(v);}
@@ -1302,7 +1302,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
      await saveKey(key,value,[...deleted]);last[key]=JSON.stringify(value);
    }catch(e){console.warn("Ortak kayıt kaydedilemedi:",key,e.message);}
  }
- function schedule(key,value){clearTimeout(timer);timer=setTimeout(()=>syncKey(key,value),500);}
+ function schedule(key,value){clearTimeout(timers[key]);timers[key]=setTimeout(()=>{delete timers[key];syncKey(key,value);},500);}
  async function refresh(){
    if(!client||!user||!coupleId||working)return;working=true;
    try{const rows=await fetchRows();for(const key of KEYS){const local=JSON.parse(localStorage.getItem(key)||"null"),merged=mergeSnapshots(rows,key,local);if(merged!==undefined){localStorage.setItem(key,JSON.stringify(merged));last[key]=JSON.stringify(merged);}}
