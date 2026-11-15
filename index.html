@@ -169,6 +169,12 @@ footer{text-align:center;padding:25px;color:#b16c87}
   <p class="note" id="pwaInstallStatus">Yükleme seçeneği açılmazsa Chrome menüsünden “Ana ekrana ekle”yi seç.</p>
  </div>
 
+ <div class="card" id="homeAccountCard">
+  <h3>🔐 Hesabın</h3>
+  <p class="muted" id="homeAuthSummary">Giriş durumunu ve ortak alanını buradan yönetebilirsin.</p>
+  <button class="secondary" type="button" onclick="showPage('account')">Hesap, giriş ve çıkış ayarları</button>
+ </div>
+
  <div class="card">
   <div class="counter">
    <p>Birlikte geçirdiğimiz günler ❤️</p>
@@ -356,12 +362,13 @@ footer{text-align:center;padding:25px;color:#b16c87}
 <footer>Sonsuza kadar bizim hikâyemiz... ❤️</footer>
 </main>
 
-<nav>
+<nav aria-label="Ana gezinme">
  <button class="active" onclick="showPage('home',this)">🏠<br>Ana sayfa</button>
  <button onclick="showPage('love',this)">💌<br>Aşk</button>
  <button onclick="showPage('games',this)">🎮<br>Oyunlar</button>
  <button onclick="showPage('memories',this)">📸<br>Anılar</button>
  <button onclick="showPage('dates',this)">🎲<br>Randevu</button>
+ <button id="accountTab" type="button" onclick="showPage('account',this)">👤<br>Hesap</button>
 </nav>
 
 <script>
@@ -903,26 +910,45 @@ function anniversaryCheck(){
 anniversaryCheck();
 
 let deferredPwaPrompt=null;
+const pwaStatus=document.getElementById("pwaInstallStatus");
+function isPwaInstalled(){
+ return window.matchMedia("(display-mode: standalone)").matches ||
+        window.matchMedia("(display-mode: fullscreen)").matches ||
+        window.navigator.standalone===true;
+}
+function setPwaStatus(message){
+ if(pwaStatus)pwaStatus.textContent=message;
+}
 window.addEventListener("beforeinstallprompt",event=>{
  event.preventDefault();
  deferredPwaPrompt=event;
+ setPwaStatus("Uygulama yüklemeye hazır. Düğmeye basarak telefonuna ekleyebilirsin. ❤️");
 });
 async function installPwaApp(){
- const status=document.getElementById("pwaInstallStatus");
- if(deferredPwaPrompt){
-  try{
-   deferredPwaPrompt.prompt();
-   const choice=await deferredPwaPrompt.userChoice;
-   status.textContent=choice.outcome==="accepted"?"Uygulama ekleme işlemi başlatıldı. ❤️":"İstediğin zaman tekrar deneyebilirsin.";
-  }catch(e){status.textContent="Chrome menüsünden “Ana ekrana ekle” seçeneğini kullanabilirsin.";}
-  deferredPwaPrompt=null;
- }else{
-  status.textContent="Chrome'da sağ üstteki üç noktaya dokun ve “Ana ekrana ekle” veya “Uygulamayı yükle” seçeneğini seç.";
+ if(isPwaInstalled()){
+  setPwaStatus("Bizim Hikâyemiz zaten uygulama olarak yüklü. ❤️");
+  return;
  }
+ if(deferredPwaPrompt){
+  const promptEvent=deferredPwaPrompt;
+  deferredPwaPrompt=null;
+  try{
+   await promptEvent.prompt();
+   const choice=await promptEvent.userChoice;
+   setPwaStatus(choice.outcome==="accepted"
+    ?"Yükleme onaylandı. Ana ekranda Bizim Hikâyemiz simgesini bulabilirsin. ❤️"
+    :"Yükleme iptal edildi. İstediğin zaman tekrar deneyebilirsin.");
+  }catch(error){
+   setPwaStatus("Otomatik yükleme açılamadı. Chrome menüsündeki yükleme seçeneğini kullan.");
+  }
+  return;
+ }
+ const message="Chrome'da sağ üstteki ⋮ menüsüne dokun. Menüde 'Uygulamayı yükle' veya 'Ana ekrana ekle' seçeneğini seç.\n\nBu düğmenin otomatik penceresi yalnızca Chrome uygulamayı yüklemeye uygun gördüğünde açılır.";
+ setPwaStatus("Otomatik yükleme penceresi şu anda tarayıcı tarafından sunulmuyor. Chrome ⋮ menüsünden “Uygulamayı yükle” veya “Ana ekrana ekle” seçeneğini kullan.");
+ alert(message);
 }
 window.addEventListener("appinstalled",()=>{
- const status=document.getElementById("pwaInstallStatus");
- if(status)status.textContent="Bizim Hikâyemiz telefonuna eklendi. ❤️";
+ setPwaStatus("Bizim Hikâyemiz telefonuna eklendi. Ana ekranından açabilirsin. ❤️");
 });
 
 if("serviceWorker" in navigator){
@@ -959,40 +985,39 @@ if("serviceWorker" in navigator){
   const accountHTML = `
     <section class="page" id="account">
       <div class="card">
-        <h3>🔐 Hesap ve ortak alan</h3>
+        <h3>🔐 Hesabım</h3>
+        <p class="muted">Bu bölümden girişini, çıkışını ve iki kişilik ortak alanınızı yönetebilirsin.</p>
+        <div id="cloudStatus" class="status">Hesap durumu kontrol ediliyor...</div>
 
-        <div id="cloudStatus" class="status">
-          Supabase bağlantısı bekleniyor.
-        </div>
-
-        <input id="cloudUrl" placeholder="Supabase proje URL'si">
-        <input id="cloudKey" type="password"
-          placeholder="sb_publishable_...">
-
-        <button id="cloudConnectButton">Bağlantıyı kaydet</button>
-
-        <div id="cloudAuth" class="hidden">
-          <input id="cloudEmail" type="email"
-            placeholder="E-posta adresin">
-          <input id="cloudPassword" type="password"
-            placeholder="Şifren (en az 6 karakter)">
-
+        <div id="cloudAuth">
+          <h3>Giriş yap veya hesap oluştur</h3>
+          <input id="cloudEmail" type="email" placeholder="E-posta adresin" autocomplete="email">
+          <input id="cloudPassword" type="password" placeholder="Şifren (en az 6 karakter)" autocomplete="current-password">
           <div class="row">
-            <button id="cloudSignUpButton">Kayıt ol</button>
-            <button class="secondary" id="cloudSignInButton">Giriş yap</button>
+            <button id="cloudSignUpButton" type="button">Hesap oluştur</button>
+            <button class="secondary" id="cloudSignInButton" type="button">Giriş yap</button>
           </div>
         </div>
 
         <div id="cloudRoom" class="hidden">
           <p id="cloudUser" class="muted"></p>
-          <button id="cloudCreateButton">❤️ Ortak alan oluştur</button>
-          <input id="cloudInvite" placeholder="Davet kodu">
-          <button class="secondary" id="cloudJoinButton">
-            Davet koduyla katıl
-          </button>
-          <div id="cloudRoomInfo" class="status"></div>
-          <button class="danger" id="cloudSignOutButton">Çıkış yap</button>
+          <div id="cloudRoomInfo" class="status">Ortak alan kontrol ediliyor...</div>
+          <button id="cloudCreateButton" type="button">❤️ Ortak alan oluştur</button>
+          <input id="cloudInvite" placeholder="Diğer kişinin davet kodu">
+          <button class="secondary" id="cloudJoinButton" type="button">Davet koduyla ortak alana katıl</button>
+          <button class="danger" id="cloudSignOutButton" type="button">Güvenli çıkış yap</button>
         </div>
+      </div>
+
+      <div class="card">
+        <h3>⚙️ Bağlantı ayarları</h3>
+        <p class="note">Bu ayarlar ilk kurulum içindir. Normal kullanımda yeniden girmen gerekmez.</p>
+        <details id="accountConnectionDetails">
+          <summary>Supabase bağlantı bilgilerini düzenle</summary>
+          <input id="cloudUrl" placeholder="Supabase proje URL'si" autocomplete="url">
+          <input id="cloudKey" type="password" placeholder="Supabase Publishable key" autocomplete="off">
+          <button id="cloudConnectButton" type="button">Bağlantıyı kaydet</button>
+        </details>
       </div>
     </section>
   `;
@@ -1056,6 +1081,11 @@ if("serviceWorker" in navigator){
     el("cloudRoom").classList.toggle("hidden", !currentUser);
     el("cloudUser").textContent =
       currentUser ? "Giriş yapıldı: " + currentUser.email : "";
+    const summary=el("homeAuthSummary");
+    if(summary)summary.textContent=currentUser
+      ? "Giriş açık: "+currentUser.email+" · Hesap ve ortak alan ayarların hazır."
+      : "Henüz giriş yapılmadı. Hesabına buradan giriş yapabilirsin.";
+    if(currentUser)status("Hesabın açık. Ortak alanını aşağıdan yönetebilirsin.");
   }
 
   async function loadSupabaseLibrary() {
@@ -1262,6 +1292,9 @@ if("serviceWorker" in navigator){
     el("cloudKey").value = saved.key;
     el("cloudConnectButton").click();
   }
+
+  // Kayıtlı bağlantıyı hesap ekranında da hazırla; kullanıcı oturumu varsa göster.
+  restoreConnection();
 
   // Giriş ekranı tek Supabase istemcisini yönetir; burada ikinci istemci açma.
 })();
