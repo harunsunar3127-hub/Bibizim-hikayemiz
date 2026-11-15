@@ -725,7 +725,7 @@ async function showMemories(){
 async function deleteMemory(id){
  if(!confirm("Bu anıyı silmek istiyor musunuz?"))return;
  const list=getMemories();const target=list.find(m=>m.id===id);
- write("memories",list.filter(m=>m.id!==id));
+ if(!write("memories",list.filter(m=>m.id!==id)))return;
  showMemories();
  if(target?.photo?.startsWith("storage://")&&window.__bhClient){
   const removed=await window.__bhClient.storage.from("couple-photos").remove([target.photo.slice(10)]);
@@ -1392,10 +1392,15 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
  async function fetchRows(){const r=await client.from("app_items").select("id,user_id,item_type,content,created_at,updated_at").eq("couple_id",coupleId);if(r.error)throw r.error;return r.data||[];}
  async function saveKey(key,value,deleted){
    const type="snapshot:"+key;
-   const found=await client.from("app_items").select("id").eq("couple_id",coupleId).eq("user_id",user.id).eq("item_type",type).limit(1).maybeSingle();
-   if(found.error)throw found.error;
-   const payload={couple_id:coupleId,user_id:user.id,item_type:type,content:{value,deleted:[...deleted]}};
-   const result=found.data?await client.from("app_items").update({...payload,updated_at:new Date().toISOString()}).eq("id",found.data.id):await client.from("app_items").insert(payload);
+   const payload={
+     couple_id:coupleId,
+     user_id:user.id,
+     item_type:type,
+     content:{value,deleted:[...deleted]},
+     updated_at:new Date().toISOString()
+   };
+   const result=await client.from("app_items")
+     .upsert(payload,{onConflict:"couple_id,user_id,item_type"});
    if(result.error)throw result.error;
  }
  async function syncKey(key,value){
