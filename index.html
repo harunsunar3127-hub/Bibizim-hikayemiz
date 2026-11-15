@@ -610,7 +610,7 @@ function newTask(){
 }
 function completeTask(){
  let score=Number(localStorage.getItem("taskScore")||0)+1;
- localStorage.setItem("taskScore",score);
+ write("taskScore",score);
  updateScore();
  alert("Birlikte güzel bir görev tamamladınız! ❤️");
 }
@@ -1312,7 +1312,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
  async function refresh(){
    if(!client||!user||!coupleId||working)return;working=true;
    try{const rows=await fetchRows();for(const key of KEYS){const local=JSON.parse(localStorage.getItem(key)||"null"),merged=mergeSnapshots(rows,key,local);if(merged!==undefined){localStorage.setItem(key,JSON.stringify(merged));last[key]=JSON.stringify(merged);}}
-     ["showFavorites","showCustom","showMemories","showFeelings","showLetters","showPlans","showWatch"].forEach(fn=>{try{if(typeof window[fn]==="function")window[fn]();}catch(e){}});
+     ["showFavorites","showCustom","showMemories","showFeelings","showLetters","showPlans","showWatch","updateScore","newDailyMessage"].forEach(fn=>{try{if(typeof window[fn]==="function")window[fn]();}catch(e){}});
    }catch(e){console.warn("Ortak veriler yenilenemedi:",e.message);}finally{working=false;}
  }
  async function start(){
