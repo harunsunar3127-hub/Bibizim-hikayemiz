@@ -621,64 +621,65 @@ function updateScore(){
 updateScore();
 
 function getMemories(){return read("memories");}
-function saveMemory(){
+async function saveMemory(){
  const title=document.getElementById("memoryTitle").value.trim();
  const note=document.getElementById("memoryNote").value.trim();
  const date=document.getElementById("memoryDate").value;
  const file=document.getElementById("memoryPhoto").files[0];
-
- if(!title||!note||!date){
-  alert("Tarih, başlık ve açıklama doldurulmalı.");
-  return;
- }
- if(file&&file.size>1500000){
-  alert("Fotoğraf 1,5 MB altında olmalı.");
-  return;
- }
- const save=(photo)=>{
-  const list=getMemories();
-  list.unshift({id:Date.now(),title,note,date,photo});
-  if(!write("memories",list))return;
-  document.getElementById("memoryTitle").value="";
-  document.getElementById("memoryNote").value="";
-  document.getElementById("memoryDate").value="";
-  document.getElementById("memoryPhoto").value="";
-  showMemories();
-  alert("Anın kaydedildi! ❤️");
- };
+ if(!title||!note||!date){alert("Tarih, başlık ve açıklama doldurulmalı.");return;}
+ if(file&&file.size>1500000){alert("Fotoğraf 1,5 MB altında olmalı.");return;}
+ let photo="";
  if(file){
-  const reader=new FileReader();
-  reader.onload=()=>save(reader.result);
-  reader.onerror=()=>alert("Fotoğraf okunamadı.");
-  reader.readAsDataURL(file);
- }else save("");
+  const client=window.__bhClient;
+  if(!client){alert("Fotoğrafı güvenli kaydetmek için önce giriş yapmalısın.");return;}
+  if(!["image/jpeg","image/png","image/webp"].includes(file.type)){alert("Yalnızca JPG, PNG veya WEBP fotoğraf yükleyebilirsin.");return;}
+  try{
+   const auth=await client.auth.getUser();if(auth.error)throw auth.error;
+   const user=auth.data.user;if(!user)throw new Error("Oturum bulunamadı.");
+   const member=await client.from("app_members").select("couple_id").eq("user_id",user.id).maybeSingle();
+   if(member.error)throw member.error;if(!member.data)throw new Error("Önce ortak alan oluşturmalı veya bir davet koduyla katılmalısın.");
+   const ext=file.type==="image/jpeg"?"jpg":file.type==="image/png"?"png":"webp";
+   const path=member.data.couple_id+"/"+user.id+"/"+Date.now()+"-"+crypto.randomUUID()+"."+ext;
+   const uploaded=await client.storage.from("couple-photos").upload(path,file,{contentType:file.type,upsert:false});
+   if(uploaded.error)throw uploaded.error;
+   photo="storage://"+path;
+  }catch(e){alert("Fotoğraf yüklenemedi: "+(e.message||"Depolama ayarlarını kontrol et."));return;}
+ }
+ const list=getMemories();
+ list.unshift({id:Date.now(),title,note,date,photo});
+ if(!write("memories",list))return;
+ document.getElementById("memoryTitle").value="";
+ document.getElementById("memoryNote").value="";
+ document.getElementById("memoryDate").value="";
+ document.getElementById("memoryPhoto").value="";
+ showMemories();
+ alert("Anın kaydedildi! ❤️");
 }
-function showMemories(){
+async function showMemories(){
  const el=document.getElementById("memoryList");
  el.innerHTML="";
- getMemories().forEach(m=>{
-  const box=document.createElement("div");
-  box.className="memory";
-  const title=document.createElement("h3");
-  title.textContent=m.title;
-  const date=document.createElement("small");
-  date.textContent=m.date;
-  const note=document.createElement("p");
-  note.textContent=m.note;
+ const memories=getMemories();
+ for(const m of memories){
+  const box=document.createElement("div");box.className="memory";
+  const title=document.createElement("h3");title.textContent=m.title;
+  const date=document.createElement("small");date.textContent=m.date;
+  const note=document.createElement("p");note.textContent=m.note;
   box.append(title,date,note);
   if(m.photo){
-   const img=document.createElement("img");
-   img.src=m.photo;
-   img.alt="Anı fotoğrafı";
+   const img=document.createElement("img");img.alt="Anı fotoğrafı";img.loading="lazy";
+   if(m.photo.startsWith("storage://")){
+    const path=m.photo.slice(10);const client=window.__bhClient;
+    if(client){
+     const signed=await client.storage.from("couple-photos").createSignedUrl(path,3600);
+     if(!signed.error)img.src=signed.data.signedUrl;
+     else img.alt="Fotoğraf açılamadı; depolama erişimini kontrol edin.";
+    }else img.alt="Fotoğrafı görmek için yeniden giriş yap.";
+   }else img.src=m.photo;
    box.append(img);
   }
-  const del=document.createElement("button");
-  del.className="delete";
-  del.textContent="Anıyı sil";
-  del.onclick=()=>deleteMemory(m.id);
-  box.append(del);
-  el.append(box);
- });
+  const del=document.createElement("button");del.className="delete";del.textContent="Anıyı sil";del.onclick=()=>deleteMemory(m.id);
+  box.append(del);el.append(box);
+ }
  if(!el.children.length)el.textContent="Henüz anınız yok. İlk anınızı ekleyin ❤️";
 }
 function deleteMemory(id){
