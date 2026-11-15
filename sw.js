@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "bizim-hikayemiz-v13";
+const CACHE_NAME = "bizim-hikayemiz-v14";
 
 const FILES = [
   "./",
@@ -42,7 +42,7 @@ self.addEventListener("fetch", event => {
   // HTML sayfalarında önce güncel sürümü internetten al.
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
+      fetch(request, {cache:"no-store"})
         .then(response => {
           if (response.ok) {
             const copy = response.clone();
