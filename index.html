@@ -1122,7 +1122,7 @@ if("serviceWorker" in navigator){
       status("Bağlanıyor...");
       await loadSupabaseLibrary();
 
-      client = window.supabase.createClient(url, key);
+      client = window.__bhClient || window.supabase.createClient(url, key);\n      window.__bhClient = client;
 
       localStorage.setItem(
         "bizimCloudConfig",
@@ -1236,6 +1236,20 @@ if("serviceWorker" in navigator){
     }
   };
 
+  window.addEventListener("bh-auth-ready", async function () {
+    if (!window.__bhClient) return;
+    client = window.__bhClient;
+    try {
+      const sessionResult = await client.auth.getSession();
+      if (sessionResult.error) throw sessionResult.error;
+      currentUser = sessionResult.data.session?.user || null;
+      updateAuthUI();
+      if (currentUser) await loadRoom();
+    } catch (error) {
+      status("Hesap bilgisi alınamadı: " + error.message);
+    }
+  });
+
   async function restoreConnection() {
     const saved = JSON.parse(
       localStorage.getItem("bizimCloudConfig") || "null"
@@ -1248,7 +1262,7 @@ if("serviceWorker" in navigator){
     el("cloudConnectButton").click();
   }
 
-  restoreConnection();
+  // Giriş ekranı tek Supabase istemcisini yönetir; burada ikinci istemci açma.
 })();
 
 </script>
@@ -1287,7 +1301,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
  async function connect(){
   const url=$("gateUrl").value.trim().replace(/\/+$/,"");const key=$("gateKey").value.trim();
   if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)||!key.startsWith("sb_publishable_"))throw new Error("Supabase URL ve Publishable key bilgilerini kontrol et.");
-  await loadLib();client=window.supabase.createClient(url,key);window.__bhClient=client;if(!window.__bhAuthListener){window.__bhAuthListener=true;client.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_OUT"||!session){gate.style.display="flex";document.body.classList.add("private-locked");status("Özel alanı açmak için yeniden giriş yap.");}});}localStorage.setItem("bizimCloudConfig",JSON.stringify({url,key}));return client;
+  await loadLib();client=window.__bhClient||window.supabase.createClient(url,key);window.__bhClient=client;if(!window.__bhAuthListener){window.__bhAuthListener=true;client.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_OUT"||!session){gate.style.display="flex";document.body.classList.add("private-locked");status("Özel alanı açmak için yeniden giriş yap.");}});}localStorage.setItem("bizimCloudConfig",JSON.stringify({url,key}));return client;
  }
  function unlock(){gate.style.display="none";document.body.classList.remove("private-locked");}
  $("gateLogin").onclick=async()=>{try{status("Bağlanılıyor...");const c=await connect();const r=await c.auth.signInWithPassword({email:$("gateEmail").value.trim(),password:$("gatePassword").value});if(r.error)throw r.error;if(r.data.user?.id)window.__bhPrepareLocalUser?.(r.data.user.id);status("Giriş başarılı. Özel alan açılıyor...");unlock();window.dispatchEvent(new Event("bh-auth-ready"));}catch(e){status(e.message||"Giriş yapılamadı.");}};
