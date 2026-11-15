@@ -1271,7 +1271,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
 /* ===== BIZIM HIKAYEMIZ: ORTAK VERI SENKRONIZASYONU ===== */
 (function(){
  const KEYS=["favorites","customMessages","taskScore","memories","dailyLove","feelings","letters","plans","watchlist"];
- let client=null,user=null,coupleId=null,channel=null,working=false;const timers={};
+ let client=null,user=null,coupleId=null,channel=null,working=false,startPromise=null;const timers={};
  const last={};
  const originalWrite=window.write;
  function identity(v){return v&&typeof v==="object"&&v.id!=null?"id:"+v.id:"value:"+JSON.stringify(v);}
@@ -1316,20 +1316,35 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
    }catch(e){console.warn("Ortak veriler yenilenemedi:",e.message);}finally{working=false;}
  }
  async function start(){
-   client=window.__bhClient;if(!client)return;
-   const session=await client.auth.getSession();user=session.data.session?.user;if(!user)return;
-   coupleId=await getMembership();if(!coupleId)return;
-   const rows=await fetchRows();
-   for(const key of KEYS){const local=JSON.parse(localStorage.getItem(key)||"null"),merged=mergeSnapshots(rows,key,local);if(merged!==undefined){localStorage.setItem(key,JSON.stringify(merged));last[key]=JSON.stringify(merged);}await syncKey(key,merged===undefined?local:merged);}
-   if(channel)await client.removeChannel(channel);
-   channel=client.channel("bh-items-"+coupleId).on("postgres_changes",{event:"*",schema:"public",table:"app_items",filter:"couple_id=eq."+coupleId},()=>refresh()).subscribe();
+   if(startPromise)return startPromise;
+   startPromise=(async()=>{
+     client=window.__bhClient;if(!client)return;
+     const session=await client.auth.getSession();user=session.data.session?.user||null;if(!user)return;
+     coupleId=await getMembership();if(!coupleId)return;
+     const rows=await fetchRows();
+     for(const key of KEYS){const local=JSON.parse(localStorage.getItem(key)||"null"),merged=mergeSnapshots(rows,key,local);if(merged!==undefined){localStorage.setItem(key,JSON.stringify(merged));last[key]=JSON.stringify(merged);}await syncKey(key,merged===undefined?local:merged);}
+     if(channel)await client.removeChannel(channel);
+     channel=client.channel("bh-items-"+coupleId).on("postgres_changes",{event:"*",schema:"public",table:"app_items",filter:"couple_id=eq."+coupleId},()=>refresh()).subscribe();
+   })();
+   try{await startPromise;}finally{startPromise=null;}
+ }
+ function watchAuth(){
+  const c=window.__bhClient;if(!c||c.__bhSyncAuthWatch)return;
+  c.__bhSyncAuthWatch=true;
+  c.auth.onAuthStateChange((event,session)=>{
+   if(event==="SIGNED_OUT"||!session){
+    if(channel){c.removeChannel(channel);channel=null;}
+    user=null;coupleId=null;working=false;
+    Object.keys(timers).forEach(k=>{clearTimeout(timers[k]);delete timers[k];});
+   }
+  });
  }
  window.addEventListener("bh-room-ready",async()=>{try{await start();}catch(e){console.warn("Senkronizasyon başlatılamadı:",e.message);}});
- window.addEventListener("bh-auth-ready",async()=>{try{await start();}catch(e){console.warn(e.message);}});
+ window.addEventListener("bh-auth-ready",async()=>{watchAuth();try{await start();}catch(e){console.warn(e.message);}});
  window.addEventListener("storage",e=>{if(KEYS.includes(e.key)&&e.newValue){try{schedule(e.key,JSON.parse(e.newValue));}catch(err){}}});
  if(typeof originalWrite==="function")window.write=function(key,value){const ok=originalWrite(key,value);if(ok&&KEYS.includes(key))schedule(key,value);return ok;};
  const saved=JSON.parse(localStorage.getItem("bizimCloudConfig")||"null");
- if(saved){const poll=setInterval(()=>{if(window.__bhClient){clearInterval(poll);window.dispatchEvent(new Event("bh-auth-ready"));}},500);setTimeout(()=>clearInterval(poll),15000);}
+ if(saved){const poll=setInterval(()=>{if(window.__bhClient){clearInterval(poll);watchAuth();window.dispatchEvent(new Event("bh-auth-ready"));}},500);setTimeout(()=>clearInterval(poll),15000);}
 })();
 </script>
 
