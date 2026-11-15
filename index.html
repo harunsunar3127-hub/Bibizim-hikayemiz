@@ -1236,7 +1236,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
    const script=document.createElement("script");
    script.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
    script.onload=resolve;
-   script.onerror=()=>reject(new Error("Supabase kütüphanesi yüklenemedi. İnternet bağlantını kontrol et."));
+   script.onerror=()=>{loadPromise=null;reject(new Error("Supabase kütüphanesi yüklenemedi. İnternet bağlantını kontrol et."));};
    document.head.appendChild(script);
   });
   return loadPromise;
@@ -1408,11 +1408,25 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
    }catch(e){console.warn("Ortak kayıt kaydedilemedi:",key,e.message);window.dispatchEvent(new CustomEvent("bh-sync-status",{detail:{message:"Senkronizasyon hatası ("+key+"): "+e.message}}));}
  }
  function schedule(key,value){clearTimeout(timers[key]);timers[key]=setTimeout(()=>{delete timers[key];syncKey(key,value);},500);}
+ function renderUI(){
+   ["showFavorites","showCustom","showMemories","showFeelings","showLetters","showPlans","showWatch","updateScore","newDailyMessage"].forEach(fn=>{
+     try{if(typeof window[fn]==="function")window[fn]();}catch(error){console.warn("Ekran güncellenemedi:",fn,error);}
+   });
+ }
  async function refresh(){
    if(!client||!user||!coupleId||working)return;working=true;
-   try{const rows=await fetchRows();for(const key of KEYS){const local=JSON.parse(localStorage.getItem(key)||"null"),merged=mergeSnapshots(rows,key,local);if(merged!==undefined){localStorage.setItem(key,JSON.stringify(merged));last[key]=JSON.stringify(merged);}}
-     ["showFavorites","showCustom","showMemories","showFeelings","showLetters","showPlans","showWatch","updateScore","newDailyMessage"].forEach(fn=>{try{if(typeof window[fn]==="function")window[fn]();}catch(e){}});
-   }catch(e){console.warn("Ortak veriler yenilenemedi:",e.message);}finally{working=false;}
+   try{
+     const rows=await fetchRows();
+     for(const key of KEYS){
+       const local=JSON.parse(localStorage.getItem(key)||"null");
+       const merged=mergeSnapshots(rows,key,local);
+       if(merged!==undefined){localStorage.setItem(key,JSON.stringify(merged));last[key]=JSON.stringify(merged);}
+     }
+     renderUI();
+   }catch(e){
+     console.warn("Ortak veriler yenilenemedi:",e.message);
+     window.dispatchEvent(new CustomEvent("bh-sync-status",{detail:{message:"Ortak kayıtlar yenilenemedi: "+e.message}}));
+   }finally{working=false;}
  }
  async function start(){
    if(startPromise)return startPromise;
@@ -1420,9 +1434,22 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
      client=window.__bhClient;if(!client)return;
      const session=await client.auth.getSession();user=session.data.session?.user||null;if(!user)return;
      activateLocalUser(user.id);
-     coupleId=await getMembership();if(!coupleId)return;
+     // İlk girişte hesaba özel cihaz kayıtlarını, ortak alan bulunmasa da ekranda göster.
+     renderUI();
+     coupleId=await getMembership();
+     if(!coupleId){
+       window.dispatchEvent(new CustomEvent("bh-sync-status",{detail:{message:"Ortak alan henüz oluşturulmadı. Kayıtların bu cihazda saklanır; ortak alan kurulduğunda eşitlenir."}}));
+       return;
+     }
      const rows=await fetchRows();
-     for(const key of KEYS){const local=JSON.parse(localStorage.getItem(key)||"null"),merged=mergeSnapshots(rows,key,local);if(merged!==undefined){localStorage.setItem(key,JSON.stringify(merged));last[key]=JSON.stringify(merged);}await syncKey(key,merged===undefined?local:merged);}
+     for(const key of KEYS){
+       const local=JSON.parse(localStorage.getItem(key)||"null");
+       const merged=mergeSnapshots(rows,key,local);
+       if(merged!==undefined){localStorage.setItem(key,JSON.stringify(merged));last[key]=JSON.stringify(merged);}
+       await syncKey(key,merged===undefined?local:merged);
+     }
+     // Özellikle özel depodan imzalı fotoğraf URL'lerini yeniden üret.
+     renderUI();
      if(channel)await client.removeChannel(channel);
      window.dispatchEvent(new CustomEvent("bh-sync-status",{detail:{message:"Ortak kayıtlar yükleniyor..."}}));
      channel=client.channel("bh-items-"+coupleId)
