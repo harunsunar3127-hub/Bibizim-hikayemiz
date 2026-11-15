@@ -1274,6 +1274,30 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
  let client=null,user=null,coupleId=null,channel=null,working=false,startPromise=null;const timers={};
  const last={};
  const originalWrite=window.write;
+ function scopedKey(userId,key){return "bh_private:"+userId+":"+key;}
+ function activateLocalUser(userId){
+   const owner=localStorage.getItem("bhLocalOwner");
+   if(owner===userId)return;
+   if(owner&&owner!==userId){
+     // Eski hesaba ait verileri yeni hesaba göstermeden önce güvenli alana al.
+     KEYS.forEach(key=>{const value=localStorage.getItem(key);if(value!==null)localStorage.setItem(scopedKey(owner,key),value);});
+   }
+   KEYS.forEach(key=>{
+     const value=localStorage.getItem(scopedKey(userId,key));
+     if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value);
+   });
+   localStorage.setItem("bhLocalOwner",userId);
+ }
+ function stashAndClearLocal(){
+   const owner=localStorage.getItem("bhLocalOwner");
+   if(!owner)return;
+   KEYS.forEach(key=>{
+     const value=localStorage.getItem(key);
+     if(value!==null)localStorage.setItem(scopedKey(owner,key),value);
+     localStorage.removeItem(key);
+   });
+   localStorage.removeItem("bhLocalOwner");
+ }
  function identity(v){return v&&typeof v==="object"&&v.id!=null?"id:"+v.id:"value:"+JSON.stringify(v);}
  function mergeSnapshots(rows,key,localValue){
    const relevant=rows.filter(r=>r.item_type==="snapshot:"+key);
@@ -1320,6 +1344,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
    startPromise=(async()=>{
      client=window.__bhClient;if(!client)return;
      const session=await client.auth.getSession();user=session.data.session?.user||null;if(!user)return;
+     activateLocalUser(user.id);
      coupleId=await getMembership();if(!coupleId)return;
      const rows=await fetchRows();
      for(const key of KEYS){const local=JSON.parse(localStorage.getItem(key)||"null"),merged=mergeSnapshots(rows,key,local);if(merged!==undefined){localStorage.setItem(key,JSON.stringify(merged));last[key]=JSON.stringify(merged);}await syncKey(key,merged===undefined?local:merged);}
@@ -1334,6 +1359,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
   c.auth.onAuthStateChange((event,session)=>{
    if(event==="SIGNED_OUT"||!session){
     if(channel){c.removeChannel(channel);channel=null;}
+    stashAndClearLocal();
     user=null;coupleId=null;working=false;
     Object.keys(timers).forEach(k=>{clearTimeout(timers[k]);delete timers[k];});
    }
