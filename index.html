@@ -161,13 +161,6 @@ footer{text-align:center;padding:25px;color:#b16c87}
 #privateGate input{margin-top:12px}
 #privateGate .gate-status{font-size:13px;color:#9b4569;min-height:20px;margin-top:12px;overflow-wrap:anywhere}
 body.private-locked>header,body.private-locked>main,body.private-locked>nav{display:none!important}
-#privateGate{position:fixed;inset:0;z-index:99999;background:linear-gradient(145deg,#fff2f6,#f8c8d9);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}
-#privateGate .gate-card{background:#fff;border-radius:24px;padding:25px;width:100%;max-width:430px;box-shadow:0 8px 30px #d9a9ba;text-align:center}
-#privateGate h1{color:#b63869;margin:8px 0}
-#privateGate p{color:#805366;line-height:1.5}
-#privateGate input{margin-top:12px}
-#privateGate .gate-status{font-size:13px;color:#9b4569;min-height:20px;margin-top:12px;overflow-wrap:anywhere}
-body.private-locked>header,body.private-locked>main,body.private-locked>nav{display:none!important}
 
 </style>
 </head>
@@ -1110,7 +1103,6 @@ if("serviceWorker" in navigator){
   window.showPage=function(id,button){
    if(typeof originalShowPage==="function")return originalShowPage(id,button);
   };
-  accountTab.addEventListener("click",()=>window.showPage("account",accountTab));
  }
  let client=null,currentUser=null,currentInviteCode="";
  const el=id=>document.getElementById(id);
