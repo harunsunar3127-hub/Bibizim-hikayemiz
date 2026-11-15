@@ -979,11 +979,13 @@ if("serviceWorker" in navigator){
     .row { display:flex; gap:8px; }
     .row button { flex:1; }
     .danger { background:#ead5df; color:#753d55; }
+    .account-panel{scroll-margin-top:18px}
+    #accountConnectionDetails{margin-top:12px}
   `;
   document.head.appendChild(style);
 
   const accountHTML = `
-    <section class="page" id="account">
+    <section class="account-panel" id="account">
       <div class="card">
         <h3>🔐 Hesabım</h3>
         <p class="muted">Bu bölümden girişini, çıkışını ve iki kişilik ortak alanınızı yönetebilirsin.</p>
@@ -1023,8 +1025,8 @@ if("serviceWorker" in navigator){
   `;
 
   if (!document.getElementById("account")) {
-    const footer = main.querySelector("footer");
-    if (footer) footer.insertAdjacentHTML("beforebegin", accountHTML);
+    const home = main.querySelector("#home");
+    if (home) home.insertAdjacentHTML("beforeend", accountHTML);
     else main.insertAdjacentHTML("beforeend", accountHTML);
   }
 
@@ -1049,18 +1051,13 @@ if("serviceWorker" in navigator){
       return;
     }
 
-    document.querySelectorAll(".page").forEach(p => {
-      p.classList.remove("active");
-    });
-
-    document.getElementById("account").classList.add("active");
-
-    nav.querySelectorAll("button").forEach(b => {
-      b.classList.remove("active");
-    });
-
+    // Hesap ayarlarını ayrı bir boş sayfaya taşımak yerine ana sayfanın
+    // sonundaki görünür panele kaydır. Böylece mobilde boş ekran oluşmaz.
+    if (typeof originalShowPage === "function") originalShowPage("home");
+    nav.querySelectorAll("button").forEach(b => b.classList.remove("active"));
     accountTab.classList.add("active");
-    window.scrollTo(0, 0);
+    const panel = document.getElementById("account");
+    if (panel) panel.scrollIntoView({behavior:"smooth",block:"start"});
   };
 
   accountTab.onclick = function () {
