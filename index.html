@@ -166,7 +166,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
 </head>
 
 <body class="private-locked">
-<div id="privateGate">
+<div id="privateGate" style="display:flex" role="dialog" aria-modal="true" aria-label="Güvenli giriş">
  <div class="gate-card">
   <div style="font-size:48px">❤️</div>
   <h1>Bizim Hikâyemiz</h1>
@@ -317,14 +317,14 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
   <h3>🎮 Birbirimizi ne kadar tanıyoruz?</h3>
   <p class="muted">Sırayla cevap verin.</p>
   <div class="love" id="gameQuestion">Hazır mısınız? ❤️</div>
-  <button onclick="nextQuestion()">Yeni soru getir</button>
+  <button id="newQuestionButton" type="button">Yeni soru getir</button>
  </div>
 
  <div class="card">
   <h3>💕 Romantik görevler</h3>
   <div class="result" id="taskResult">Bugünün görevi seni bekliyor.</div>
-  <button onclick="newTask()">Görevimi öğren</button>
-  <button class="secondary" onclick="completeTask()">Görevi tamamladık ❤️</button>
+  <button id="newTaskButton" type="button">Görevimi öğren</button>
+  <button class="secondary" id="completeTaskButton" type="button">Görevi tamamladık ❤️</button>
   <p id="taskScore" class="muted">Tamamlanan görev: 0</p>
  </div>
 </section>
@@ -347,7 +347,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
   <h3>🎲 Randevu ruleti</h3>
   <p>Bugün birlikte ne yapalım?</p>
   <div class="love" id="dateResult">Güzel bir plan seni bekliyor...</div>
-  <button onclick="newDate()">Şansımızı deneyelim 💕</button>
+  <button id="newDateButton" type="button">Şansımızı deneyelim 💕</button>
  </div>
 </section>
 
@@ -666,14 +666,17 @@ function newTask(){
  document.getElementById("taskResult").textContent=getRandom(tasks);
 }
 function completeTask(){
- let score=Number(localStorage.getItem("taskScore")||0)+1;
- write("taskScore",score);
+ const previous=Number(localStorage.getItem("taskScore"));
+ const score=(Number.isFinite(previous)&&previous>=0?previous:0)+1;
+ if(!write("taskScore",score))return;
  updateScore();
  alert("Birlikte güzel bir görev tamamladınız! ❤️");
 }
 function updateScore(){
- document.getElementById("taskScore").textContent=
- "Tamamlanan görev: "+(localStorage.getItem("taskScore")||0);
+ const raw=Number(localStorage.getItem("taskScore"));
+ const score=Number.isFinite(raw)&&raw>=0?raw:0;
+ localStorage.setItem("taskScore",String(score));
+ document.getElementById("taskScore").textContent="Tamamlanan görev: "+score;
 }
 updateScore();
 
@@ -1042,6 +1045,20 @@ if(installButton){
  });
 }
 updateInstallButton();
+
+// Mobil tarayıcı ve kurulu PWA'da kritik oyun düğmelerini doğrudan bağla.
+function bindAction(id,action){
+ const button=document.getElementById(id);
+ if(!button)return;
+ button.addEventListener("click",()=>{
+  try{action();}
+  catch(error){console.error("Buton işlemi başarısız:",id,error);alert("İşlem tamamlanamadı. Sayfayı yenileyip tekrar dene.");}
+ });
+}
+bindAction("newQuestionButton",nextQuestion);
+bindAction("newTaskButton",newTask);
+bindAction("completeTaskButton",completeTask);
+bindAction("newDateButton",newDate);
 
 if("serviceWorker" in navigator){
  window.addEventListener("load",()=>{
@@ -1471,5 +1488,14 @@ if("serviceWorker" in navigator){
 })();
 </script>
 
+<script>
+// Uygulama her açılışta güvenli giriş kapısıyla başlamalı.
+// Önceki PWA sürümünden kalmış oturum/DOM durumu özel alanı açamaz.
+(function(){
+ document.body.classList.add("private-locked");
+ const gate=document.getElementById("privateGate");
+ if(gate)gate.style.display="flex";
+})();
+</script>
 </body>
 </html>
