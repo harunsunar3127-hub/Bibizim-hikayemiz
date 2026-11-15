@@ -139,6 +139,13 @@ min-width:0;
 nav button.active{color:#d33f75;font-weight:bold}
 footer{text-align:center;padding:25px;color:#b16c87}
 .note{font-size:12px;color:#987989;line-height:1.5}
+#privateGate details{margin:14px 0 8px;text-align:left;color:#9b4569;font-size:14px}
+#privateGate summary{cursor:pointer;text-align:center;padding:10px;border-radius:12px;background:#fff3f7;list-style:none}
+#privateGate summary::-webkit-details-marker{display:none}
+#privateGate details input{width:100%;box-sizing:border-box}
+#privateGate input{width:100%;box-sizing:border-box;padding:14px;border:1px solid #e6cbd7;border-radius:14px;font:inherit;color:#684455;background:#fffafd}
+#privateGate button{width:100%;margin-top:12px;padding:14px;border:0;border-radius:14px;background:#d94d83;color:white;font:inherit;cursor:pointer}
+#privateGate button.secondary{background:#f8dce7;color:#994568}
 </style>
 </head>
 
@@ -1206,8 +1213,11 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
 <div id="privateGate"><div class="gate-card">
 <div style="font-size:48px">❤️</div><h1>Bizim Hikâyemiz</h1>
 <p>Bu küçük dünyaya yalnızca ikiniz giriş yapabilirsiniz.</p>
-<input id="gateUrl" placeholder="Supabase proje URL'si" autocomplete="url">
-<input id="gateKey" type="password" placeholder="Supabase Publishable key" autocomplete="off">
+<details id="connectionSettings">
+ <summary>⚙️ Bağlantı ayarları</summary>
+ <input id="gateUrl" placeholder="Supabase proje URL'si" autocomplete="url">
+ <input id="gateKey" type="password" placeholder="Supabase Publishable key" autocomplete="off">
+</details>
 <input id="gateEmail" type="email" placeholder="E-posta adresin" autocomplete="email">
 <input id="gatePassword" type="password" placeholder="Şifren (en az 6 karakter)" autocomplete="current-password">
 <button id="gateLogin">Giriş yap ❤️</button><button id="gateRegister" class="secondary">Hesap oluştur</button>
@@ -1219,7 +1229,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
  const $=id=>document.getElementById(id);let client=null;const gate=$("privateGate");
  const status=t=>$("gateStatus").textContent=t;
  const saved=JSON.parse(localStorage.getItem("bizimCloudConfig")||"null");
- if(saved){$("gateUrl").value=saved.url||"";$("gateKey").value=saved.key||"";}
+ if(saved){$("gateUrl").value=saved.url||"";$("gateKey").value=saved.key||"";$("connectionSettings").open=false;}else{$("connectionSettings").open=true;}
  function loadLib(){if(window.supabase)return Promise.resolve();return new Promise((resolve,reject)=>{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";s.onload=resolve;s.onerror=()=>reject(new Error("Supabase kütüphanesi yüklenemedi."));document.head.appendChild(s);});}
  async function connect(){
   const url=$("gateUrl").value.trim().replace(/\/+$/,"");const key=$("gateKey").value.trim();
