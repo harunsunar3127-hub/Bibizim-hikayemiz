@@ -1069,6 +1069,7 @@ if("serviceWorker" in navigator){
 
     el("cloudRoomInfo").textContent =
       "Ortak alanın hazır ❤️ Davet kodun: " + room.data.invite_code;
+    window.dispatchEvent(new CustomEvent("bh-room-ready",{detail:{coupleId:member.data.couple_id}}));
   }
 
   el("cloudConnectButton").onclick = async function () {
@@ -1240,6 +1241,73 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
  $("gateLogin").onclick=async()=>{try{status("Bağlanılıyor...");const c=await connect();const r=await c.auth.signInWithPassword({email:$("gateEmail").value.trim(),password:$("gatePassword").value});if(r.error)throw r.error;status("Giriş başarılı. Özel alan açılıyor...");unlock();}catch(e){status(e.message||"Giriş yapılamadı.");}};
  $("gateRegister").onclick=async()=>{try{status("Hesap oluşturuluyor...");const c=await connect();const r=await c.auth.signUp({email:$("gateEmail").value.trim(),password:$("gatePassword").value,options:{emailRedirectTo:location.origin+location.pathname}});if(r.error)throw r.error;if(r.data.session)unlock();else status("Kayıt oluşturuldu. E-postana gelen doğrulama bağlantısına tıkla, sonra giriş yap.");}catch(e){status(e.message||"Kayıt oluşturulamadı.");}};
  (async()=>{try{if(!saved)return;const c=await connect();const r=await c.auth.getSession();if(r.error)throw r.error;if(r.data.session)unlock();}catch(e){status("Giriş için Supabase bağlantını kontrol et: "+e.message);}})();
+})();
+</script>
+
+
+<script>
+/* ===== BIZIM HIKAYEMIZ: ORTAK VERI SENKRONIZASYONU ===== */
+(function(){
+ const KEYS=["favorites","customMessages","taskScore","memories","dailyLove","feelings","letters","plans","watchlist"];
+ let client=null,user=null,coupleId=null,channel=null,working=false,timer=null;
+ const last={};
+ const originalWrite=window.write;
+ function identity(v){return v&&typeof v==="object"&&v.id!=null?"id:"+v.id:"value:"+JSON.stringify(v);}
+ function mergeSnapshots(rows,key,localValue){
+   const relevant=rows.filter(r=>r.item_type==="snapshot:"+key);
+   const tomb=new Set(),entries=new Map();let newest=null;
+   for(const row of relevant){
+     const c=row.content||{};(Array.isArray(c.deleted)?c.deleted:[]).forEach(x=>tomb.add(x));
+     if(c.value!==undefined){
+       if(Array.isArray(c.value))for(const item of c.value){const id=identity(item),prev=entries.get(id);if(!prev||String(row.updated_at||row.created_at)>String(prev.stamp))entries.set(id,{item,stamp:row.updated_at||row.created_at});}
+       else if(!newest||String(row.updated_at||row.created_at)>String(newest.stamp))newest={value:c.value,stamp:row.updated_at||row.created_at};
+     }
+   }
+   const cloud=relevant.length?(Array.isArray(relevant[0].content?.value)?[...entries.entries()].filter(([id])=>!tomb.has(id)).map(([,v])=>v.item):(newest?newest.value:undefined)):undefined;
+   if(Array.isArray(cloud)){const map=new Map();for(const item of cloud)map.set(identity(item),item);for(const item of (Array.isArray(localValue)?localValue:[]))if(!tomb.has(identity(item))&&!map.has(identity(item)))map.set(identity(item),item);return [...map.values()];}
+   if(typeof cloud==="number"&&typeof localValue==="number")return Math.max(cloud,localValue);
+   return cloud===undefined?localValue:cloud;
+ }
+ async function getMembership(){const m=await client.from("app_members").select("couple_id").eq("user_id",user.id).maybeSingle();if(m.error)throw m.error;return m.data?.couple_id||null;}
+ async function fetchRows(){const r=await client.from("app_items").select("id,user_id,item_type,content,created_at,updated_at").eq("couple_id",coupleId);if(r.error)throw r.error;return r.data||[];}
+ async function saveKey(key,value,deleted){
+   const type="snapshot:"+key;
+   const found=await client.from("app_items").select("id").eq("couple_id",coupleId).eq("user_id",user.id).eq("item_type",type).limit(1).maybeSingle();
+   if(found.error)throw found.error;
+   const payload={couple_id:coupleId,user_id:user.id,item_type:type,content:{value,deleted:[...deleted]}};
+   const result=found.data?await client.from("app_items").update({...payload,updated_at:new Date().toISOString()}).eq("id",found.data.id):await client.from("app_items").insert(payload);
+   if(result.error)throw result.error;
+ }
+ async function syncKey(key,value){
+   if(!client||!user||!coupleId||working)return;
+   try{const rows=await fetchRows(),deleted=new Set();rows.filter(r=>r.item_type==="snapshot:"+key).forEach(r=>(Array.isArray(r.content?.deleted)?r.content.deleted:[]).forEach(x=>deleted.add(x)));
+     const previous=last[key]?JSON.parse(last[key]):null;
+     if(Array.isArray(previous)&&Array.isArray(value)){const now=new Set(value.map(identity));previous.forEach(item=>{const id=identity(item);if(!now.has(id))deleted.add(id);});}
+     await saveKey(key,value,[...deleted]);last[key]=JSON.stringify(value);
+   }catch(e){console.warn("Ortak kayıt kaydedilemedi:",key,e.message);}
+ }
+ function schedule(key,value){clearTimeout(timer);timer=setTimeout(()=>syncKey(key,value),500);}
+ async function refresh(){
+   if(!client||!user||!coupleId||working)return;working=true;
+   try{const rows=await fetchRows();for(const key of KEYS){const local=JSON.parse(localStorage.getItem(key)||"null"),merged=mergeSnapshots(rows,key,local);if(merged!==undefined){localStorage.setItem(key,JSON.stringify(merged));last[key]=JSON.stringify(merged);}}
+     ["showFavorites","showCustom","showMemories","showFeelings","showLetters","showPlans","showWatch"].forEach(fn=>{try{if(typeof window[fn]==="function")window[fn]();}catch(e){}});
+   }catch(e){console.warn("Ortak veriler yenilenemedi:",e.message);}finally{working=false;}
+ }
+ async function start(){
+   client=window.__bhClient;if(!client)return;
+   const session=await client.auth.getSession();user=session.data.session?.user;if(!user)return;
+   coupleId=await getMembership();if(!coupleId)return;
+   const rows=await fetchRows();
+   for(const key of KEYS){const local=JSON.parse(localStorage.getItem(key)||"null"),merged=mergeSnapshots(rows,key,local);if(merged!==undefined){localStorage.setItem(key,JSON.stringify(merged));last[key]=JSON.stringify(merged);}await syncKey(key,merged===undefined?local:merged);}
+   if(channel)await client.removeChannel(channel);
+   channel=client.channel("bh-items-"+coupleId).on("postgres_changes",{event:"*",schema:"public",table:"app_items",filter:"couple_id=eq."+coupleId},()=>refresh()).subscribe();
+ }
+ window.addEventListener("bh-room-ready",async()=>{try{await start();}catch(e){console.warn("Senkronizasyon başlatılamadı:",e.message);}});
+ window.addEventListener("bh-auth-ready",async()=>{try{await start();}catch(e){console.warn(e.message);}});
+ window.addEventListener("storage",e=>{if(KEYS.includes(e.key)&&e.newValue){try{schedule(e.key,JSON.parse(e.newValue));}catch(err){}}});
+ if(typeof originalWrite==="function")window.write=function(key,value){const ok=originalWrite(key,value);if(ok&&KEYS.includes(key))schedule(key,value);return ok;};
+ const saved=JSON.parse(localStorage.getItem("bizimCloudConfig")||"null");
+ if(saved){const poll=setInterval(()=>{if(window.__bhClient){clearInterval(poll);window.dispatchEvent(new Event("bh-auth-ready"));}},500);setTimeout(()=>clearInterval(poll),15000);}
 })();
 </script>
 
