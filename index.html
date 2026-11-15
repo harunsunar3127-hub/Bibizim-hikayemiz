@@ -1279,12 +1279,17 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
    const owner=localStorage.getItem("bhLocalOwner");
    if(owner===userId)return;
    if(owner&&owner!==userId){
-     // Eski hesaba ait verileri yeni hesaba göstermeden önce güvenli alana al.
+     // Eski hesaba ait verileri yeni hesaba göstermeden önce kendi alanında tut.
      KEYS.forEach(key=>{const value=localStorage.getItem(key);if(value!==null)localStorage.setItem(scopedKey(owner,key),value);});
    }
    KEYS.forEach(key=>{
-     const value=localStorage.getItem(scopedKey(userId,key));
-     if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value);
+     const scoped=localStorage.getItem(scopedKey(userId,key));
+     const current=localStorage.getItem(key);
+     if(scoped!==null)localStorage.setItem(key,scoped);
+     else if(!owner&&current!==null){
+       // İlk bulut oturumunda mevcut cihaz verilerini kaybetmeden kullanıcıya bağla.
+       localStorage.setItem(scopedKey(userId,key),current);
+     }else localStorage.removeItem(key);
    });
    localStorage.setItem("bhLocalOwner",userId);
  }
