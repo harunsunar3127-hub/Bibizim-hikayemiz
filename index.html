@@ -628,7 +628,7 @@ function updateScore(){
 updateScore();
 
 function getMemories(){return read("memories");}
-async function saveMemory(){
+async async function saveMemory(){
  const title=document.getElementById("memoryTitle").value.trim();
  const note=document.getElementById("memoryNote").value.trim();
  const date=document.getElementById("memoryDate").value;
