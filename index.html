@@ -1122,7 +1122,8 @@ if("serviceWorker" in navigator){
       status("Bağlanıyor...");
       await loadSupabaseLibrary();
 
-      client = window.__bhClient || window.supabase.createClient(url, key);\n      window.__bhClient = client;
+      client = window.__bhClient || window.supabase.createClient(url, key);
+      window.__bhClient = client;
 
       localStorage.setItem(
         "bizimCloudConfig",
