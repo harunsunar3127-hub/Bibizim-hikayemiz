@@ -1193,5 +1193,45 @@ if("serviceWorker" in navigator){
 
 </script>
 
+
+<style>
+#privateGate{position:fixed;inset:0;z-index:99999;background:linear-gradient(145deg,#fff2f6,#f8c8d9);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}
+#privateGate .gate-card{background:#fff;border-radius:24px;padding:25px;width:100%;max-width:430px;box-shadow:0 8px 30px #d9a9ba;text-align:center}
+#privateGate h1{color:#b63869;margin:8px 0}
+#privateGate p{color:#805366;line-height:1.5}
+#privateGate input{margin-top:12px}
+#privateGate .gate-status{font-size:13px;color:#9b4569;min-height:20px;margin-top:12px;overflow-wrap:anywhere}
+body.private-locked>header,body.private-locked>main,body.private-locked>nav{display:none!important}
+</style>
+<div id="privateGate"><div class="gate-card">
+<div style="font-size:48px">❤️</div><h1>Bizim Hikâyemiz</h1>
+<p>Bu küçük dünyaya yalnızca ikiniz giriş yapabilirsiniz.</p>
+<input id="gateUrl" placeholder="Supabase proje URL'si" autocomplete="url">
+<input id="gateKey" type="password" placeholder="Supabase Publishable key" autocomplete="off">
+<input id="gateEmail" type="email" placeholder="E-posta adresin" autocomplete="email">
+<input id="gatePassword" type="password" placeholder="Şifren (en az 6 karakter)" autocomplete="current-password">
+<button id="gateLogin">Giriş yap ❤️</button><button id="gateRegister" class="secondary">Hesap oluştur</button>
+<div id="gateStatus" class="gate-status">Özel alanı açmak için giriş yap.</div>
+</div></div>
+<script>
+(function(){
+ document.body.classList.add("private-locked");
+ const $=id=>document.getElementById(id);let client=null;const gate=$("privateGate");
+ const status=t=>$("gateStatus").textContent=t;
+ const saved=JSON.parse(localStorage.getItem("bizimCloudConfig")||"null");
+ if(saved){$("gateUrl").value=saved.url||"";$("gateKey").value=saved.key||"";}
+ function loadLib(){if(window.supabase)return Promise.resolve();return new Promise((resolve,reject)=>{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";s.onload=resolve;s.onerror=()=>reject(new Error("Supabase kütüphanesi yüklenemedi."));document.head.appendChild(s);});}
+ async function connect(){
+  const url=$("gateUrl").value.trim().replace(/\/+$/,"");const key=$("gateKey").value.trim();
+  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)||!key.startsWith("sb_publishable_"))throw new Error("Supabase URL ve Publishable key bilgilerini kontrol et.");
+  await loadLib();client=window.supabase.createClient(url,key);localStorage.setItem("bizimCloudConfig",JSON.stringify({url,key}));return client;
+ }
+ function unlock(){gate.remove();document.body.classList.remove("private-locked");}
+ $("gateLogin").onclick=async()=>{try{status("Bağlanılıyor...");const c=await connect();const r=await c.auth.signInWithPassword({email:$("gateEmail").value.trim(),password:$("gatePassword").value});if(r.error)throw r.error;status("Giriş başarılı. Özel alan açılıyor...");unlock();}catch(e){status(e.message||"Giriş yapılamadı.");}};
+ $("gateRegister").onclick=async()=>{try{status("Hesap oluşturuluyor...");const c=await connect();const r=await c.auth.signUp({email:$("gateEmail").value.trim(),password:$("gatePassword").value,options:{emailRedirectTo:location.origin+location.pathname}});if(r.error)throw r.error;if(r.data.session)unlock();else status("Kayıt oluşturuldu. E-postana gelen doğrulama bağlantısına tıkla, sonra giriş yap.");}catch(e){status(e.message||"Kayıt oluşturulamadı.");}};
+ (async()=>{try{if(!saved)return;const c=await connect();const r=await c.auth.getSession();if(r.error)throw r.error;if(r.data.session)unlock();}catch(e){status("Giriş için Supabase bağlantını kontrol et: "+e.message);}})();
+})();
+</script>
+
 </body>
 </html>
