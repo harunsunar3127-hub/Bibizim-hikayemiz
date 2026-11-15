@@ -1,10 +1,11 @@
 
-const CACHE_NAME = "bizim-hikayemiz-v7";
+const CACHE_NAME = "bizim-hikayemiz-v8";
 
 const FILES = [
   "./",
   "./index.html",
-  "./manifest.json"
+  "./manifest.json",
+  "./icon.svg"
 ];
 
 self.addEventListener("install", event => {
