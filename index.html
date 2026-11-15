@@ -1039,7 +1039,7 @@ if("serviceWorker" in navigator){
  `;
  document.head.appendChild(style);
  const accountHTML=`
-  <section class="account-panel" id="account">
+  <section class="page account-panel" id="account">
    <div class="card">
     <h3>🔐 Hesabım</h3>
     <p class="muted">Giriş, ortak alan ve güvenli çıkış ayarların burada.</p>
@@ -1064,22 +1064,13 @@ if("serviceWorker" in navigator){
  `;
  if(!document.getElementById("account")){
   const home=main.querySelector("#home");
-  if(home)home.insertAdjacentHTML("beforeend",accountHTML);
-  else main.insertAdjacentHTML("beforeend",accountHTML);
+  main.insertAdjacentHTML("beforeend",accountHTML);
  }
  const accountTab=document.getElementById("accountTab");
  const originalShowPage=window.showPage;
  if(accountTab){
   window.showPage=function(id,button){
-   if(id!=="account"){
-    if(typeof originalShowPage==="function")return originalShowPage(id,button);
-    return;
-   }
-   if(typeof originalShowPage==="function")originalShowPage("home");
-   nav.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
-   accountTab.classList.add("active");
-   const panel=document.getElementById("account");
-   if(panel)panel.scrollIntoView({behavior:"smooth",block:"start"});
+   if(typeof originalShowPage==="function")return originalShowPage(id,button);
   };
   accountTab.addEventListener("click",()=>window.showPage("account",accountTab));
  }
@@ -1320,20 +1311,9 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
   field.type=field.type==="password"?"text":"password";
   $("gateTogglePassword").textContent=field.type==="password"?"Şifreyi göster":"Şifreyi gizle";
  });
- (async()=>{
-  if(!saved)return;
-  try{
-   status("Kayıtlı oturum kontrol ediliyor...");
-   const c=await connect();
-   const result=await c.auth.getSession();
-   if(result.error)throw result.error;
-   const user=result.data.session?.user||null;
-   if(user){
-    openPrivateArea(user);
-    status("Oturumun açık. Hoş geldin! ❤️");
-   }else status("Bağlantı hazır. E-posta ve şifrenle giriş yapabilirsin.");
-  }catch(error){status("Bağlantı kurulamadı: "+(error.message||"Ayarları kontrol et."));}
- })();
+ // Her uygulama açılışında özel alan kilitli kalır.
+ // Kayıtlı Supabase oturumu giriş ekranını atlamaz; kullanıcı e-posta ve şifresiyle giriş yapmalıdır.
+ if(saved)status("Bağlantı ayarların yüklendi. Özel alanı açmak için e-posta ve şifrenle giriş yap.");
 })();
 </script>
 
