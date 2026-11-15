@@ -6,7 +6,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#f7b8cc">
 <meta name="description" content="Bizim Hikâyemiz, iki kalbin ortak hikâyesi.">
-<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Bizim Hikâyemiz">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="./icon-192.png">
 <title>Bizim Hikâyemiz ❤️</title>
 
 <style>
@@ -165,8 +171,13 @@ footer{text-align:center;padding:25px;color:#b16c87}
  <div class="card" id="pwaInstallCard">
   <h3>📲 Telefonuna ekle</h3>
   <p class="muted">Bizim Hikâyemiz'i telefonunda uygulama simgesiyle açabilirsin.</p>
-  <button class="secondary" type="button" onclick="installPwaApp()">Ana ekrana ekle ❤️</button>
-  <p class="note" id="pwaInstallStatus">Yükleme seçeneği açılmazsa Chrome menüsünden “Ana ekrana ekle”yi seç.</p>
+  <button class="secondary" id="installPwaButton" type="button">Kurulum seçeneği hazırlanıyor…</button>
+  <p class="note" id="pwaInstallStatus" role="status" aria-live="polite">Telefonuna uygulama olarak eklemek için hazır olduğunda bu düğmeyi kullan.</p>
+  <details id="installPwaHelp" class="note">
+   <summary>Kurulum adımları</summary>
+   <p><strong>Android / Chrome:</strong> Sağ üstteki ⋮ menüsünü aç. “Uygulamayı yükle” veya “Ana ekrana ekle” seçeneğine dokun ve onayla.</p>
+   <p><strong>iPhone / Safari:</strong> Paylaş simgesine dokun, “Ana Ekrana Ekle” seçeneğini seç.</p>
+  </details>
  </div>
 
  <div class="card" id="homeAccountCard">
@@ -508,7 +519,8 @@ function newLoveMessage(){
 }
 
 function newDailyMessage(){
- const dayKey=new Date().toLocaleDateString("en-CA");
+ const now=new Date();
+ const dayKey=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
  let saved=read("dailyLove",null);
  let msg=saved&&saved.day===dayKey?saved.message:getRandom(messages);
  if(!saved||saved.day!==dayKey)write("dailyLove",{day:dayKey,message:msg});
@@ -642,31 +654,45 @@ async function saveMemory(){
  const file=document.getElementById("memoryPhoto").files[0];
  if(!title||!note||!date){alert("Tarih, başlık ve açıklama doldurulmalı.");return;}
  if(file&&file.size>1500000){alert("Fotoğraf 1,5 MB altında olmalı.");return;}
- let photo="";
+ let photo="",uploadedPath="";
  if(file){
   const client=window.__bhClient;
-  if(!client){alert("Fotoğrafı güvenli kaydetmek için önce giriş yapmalısın.");return;}
-  if(!["image/jpeg","image/png","image/webp"].includes(file.type)){alert("Yalnızca JPG, PNG veya WEBP fotoğraf yükleyebilirsin.");return;}
+  if(!client){alert("Fotoğrafı güvenli kaydetmek için giriş yapmalısın.");return;}
+  if(!["image/jpeg","image/png","image/webp"].includes(file.type)){
+   alert("Yalnızca JPG, PNG veya WEBP fotoğraf yükleyebilirsin.");return;
+  }
   try{
-   const auth=await client.auth.getUser();if(auth.error)throw auth.error;
-   const user=auth.data.user;if(!user)throw new Error("Oturum bulunamadı.");
+   const auth=await client.auth.getUser();
+   if(auth.error)throw auth.error;
+   const user=auth.data.user;
+   if(!user)throw new Error("Oturum bulunamadı.");
    const member=await client.from("app_members").select("couple_id").eq("user_id",user.id).maybeSingle();
-   if(member.error)throw member.error;if(!member.data)throw new Error("Önce ortak alan oluşturmalı veya bir davet koduyla katılmalısın.");
+   if(member.error)throw member.error;
+   if(!member.data)throw new Error("Fotoğraf eklemek için önce ortak alan oluşturmalısın.");
    const ext=file.type==="image/jpeg"?"jpg":file.type==="image/png"?"png":"webp";
-   const path=member.data.couple_id+"/"+user.id+"/"+Date.now()+"-"+crypto.randomUUID()+"."+ext;
-   const uploaded=await client.storage.from("couple-photos").upload(path,file,{contentType:file.type,upsert:false});
+   const unique=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():Date.now()+"-"+Math.random().toString(36).slice(2);
+   uploadedPath=member.data.couple_id+"/"+user.id+"/"+unique+"."+ext;
+   const uploaded=await client.storage.from("couple-photos").upload(uploadedPath,file,{contentType:file.type,upsert:false});
    if(uploaded.error)throw uploaded.error;
-   photo="storage://"+path;
-  }catch(e){alert("Fotoğraf yüklenemedi: "+(e.message||"Depolama ayarlarını kontrol et."));return;}
+   photo="storage://"+uploadedPath;
+  }catch(error){
+   alert("Fotoğraf yüklenemedi: "+(error.message||"Depolama ayarlarını kontrol et."));
+   return;
+  }
  }
  const list=getMemories();
  list.unshift({id:Date.now(),title,note,date,photo});
- if(!write("memories",list))return;
+ if(!write("memories",list)){
+  if(uploadedPath&&window.__bhClient){
+   try{await window.__bhClient.storage.from("couple-photos").remove([uploadedPath]);}catch(error){}
+  }
+  return;
+ }
  document.getElementById("memoryTitle").value="";
  document.getElementById("memoryNote").value="";
  document.getElementById("memoryDate").value="";
  document.getElementById("memoryPhoto").value="";
- showMemories();
+ await showMemories();
  alert("Anın kaydedildi! ❤️");
 }
 async function showMemories(){
@@ -910,393 +936,248 @@ function anniversaryCheck(){
 anniversaryCheck();
 
 let deferredPwaPrompt=null;
-const pwaStatus=document.getElementById("pwaInstallStatus");
+const installButton=document.getElementById("installPwaButton");
+const installStatus=document.getElementById("pwaInstallStatus");
+const installHelp=document.getElementById("installPwaHelp");
+const supportsNavigatorInstall=typeof navigator.install==="function";
+function setInstallStatus(message){
+ if(installStatus)installStatus.textContent=message;
+}
 function isPwaInstalled(){
  return window.matchMedia("(display-mode: standalone)").matches ||
         window.matchMedia("(display-mode: fullscreen)").matches ||
         window.navigator.standalone===true;
 }
-function setPwaStatus(message){
- if(pwaStatus)pwaStatus.textContent=message;
+function updateInstallButton(){
+ if(!installButton)return;
+ if(isPwaInstalled()){
+  installButton.textContent="Uygulama yüklendi ❤️";
+  installButton.disabled=true;
+  setInstallStatus("Bizim Hikâyemiz telefonunda uygulama olarak yüklü.");
+ }else if(supportsNavigatorInstall||deferredPwaPrompt){
+  installButton.textContent="Uygulamayı yükle ❤️";
+  installButton.disabled=false;
+ }else{
+  installButton.textContent="Kurulum adımlarını göster";
+  installButton.disabled=false;
+ }
 }
 window.addEventListener("beforeinstallprompt",event=>{
  event.preventDefault();
  deferredPwaPrompt=event;
- setPwaStatus("Uygulama yüklemeye hazır. Düğmeye basarak telefonuna ekleyebilirsin. ❤️");
+ updateInstallButton();
 });
-async function installPwaApp(){
- if(isPwaInstalled()){
-  setPwaStatus("Bizim Hikâyemiz zaten uygulama olarak yüklü. ❤️");
-  return;
- }
- if(deferredPwaPrompt){
-  const promptEvent=deferredPwaPrompt;
-  deferredPwaPrompt=null;
-  try{
-   await promptEvent.prompt();
-   const choice=await promptEvent.userChoice;
-   setPwaStatus(choice.outcome==="accepted"
-    ?"Yükleme onaylandı. Ana ekranda Bizim Hikâyemiz simgesini bulabilirsin. ❤️"
-    :"Yükleme iptal edildi. İstediğin zaman tekrar deneyebilirsin.");
-  }catch(error){
-   setPwaStatus("Otomatik yükleme açılamadı. Chrome menüsündeki yükleme seçeneğini kullan.");
-  }
-  return;
- }
- const message="Chrome'da sağ üstteki ⋮ menüsüne dokun. Menüde 'Uygulamayı yükle' veya 'Ana ekrana ekle' seçeneğini seç.\n\nBu düğmenin otomatik penceresi yalnızca Chrome uygulamayı yüklemeye uygun gördüğünde açılır.";
- setPwaStatus("Otomatik yükleme penceresi şu anda tarayıcı tarafından sunulmuyor. Chrome ⋮ menüsünden “Uygulamayı yükle” veya “Ana ekrana ekle” seçeneğini kullan.");
- alert(message);
-}
 window.addEventListener("appinstalled",()=>{
- setPwaStatus("Bizim Hikâyemiz telefonuna eklendi. Ana ekranından açabilirsin. ❤️");
+ deferredPwaPrompt=null;
+ updateInstallButton();
+ setInstallStatus("Bizim Hikâyemiz telefonuna eklendi. Ana ekrandan açabilirsin. ❤️");
 });
+if(installButton){
+ installButton.addEventListener("click",async()=>{
+  if(isPwaInstalled()){updateInstallButton();return;}
+  installButton.disabled=true;
+  try{
+   if(supportsNavigatorInstall){
+    await navigator.install();
+    setInstallStatus("Kurulum isteği tamamlandı. ❤️");
+    if(installHelp)installHelp.open=false;
+   }else if(deferredPwaPrompt){
+    const promptEvent=deferredPwaPrompt;
+    deferredPwaPrompt=null;
+    await promptEvent.prompt();
+    const choice=await promptEvent.userChoice;
+    setInstallStatus(choice.outcome==="accepted"
+     ?"Kurulum onaylandı. Ana ekranda Bizim Hikâyemiz simgesini bulabilirsin. ❤️"
+     :"Kurulum iptal edildi. İstediğinde yeniden deneyebilirsin.");
+   }else{
+    if(installHelp)installHelp.open=true;
+    setInstallStatus("Tarayıcı otomatik kurulum penceresi sunmadı. Aşağıdaki adımları uygula.");
+   }
+  }catch(error){
+   if(error&&error.name==="AbortError"){
+    setInstallStatus("Kurulum iptal edildi veya tarayıcı şu anda kuruluma izin vermiyor.");
+   }else{
+    setInstallStatus("Kurulum açılamadı. Aşağıdaki tarayıcı adımlarını kullan.");
+    if(installHelp)installHelp.open=true;
+    console.warn("PWA installation:",error);
+   }
+  }finally{
+   installButton.disabled=false;
+   updateInstallButton();
+  }
+ });
+}
+updateInstallButton();
 
 if("serviceWorker" in navigator){
  window.addEventListener("load",()=>{
-  navigator.serviceWorker.register("./sw.js").catch(err=>{
-   console.log("Service Worker kaydı yapılamadı:",err);
+  navigator.serviceWorker.register("./sw.js",{scope:"./",updateViaCache:"none"}).then(registration=>{
+   registration.update().catch(()=>{});
+  }).catch(err=>{
+   console.warn("Service Worker kaydı yapılamadı:",err);
   });
  });
 }
 
-/* ===== HESAP VE SUPABASE - DUZELTILMIS ===== */
-(function () {
-  const main = document.querySelector("main");
-  const nav = document.querySelector("nav");
-
-  if (!main || !nav) return;
-
-  const style = document.createElement("style");
-  style.textContent = `
-    .hidden { display:none !important; }
-    .status {
-      background:#fff0f5;
-      padding:12px;
-      border-radius:10px;
-      margin:10px 0;
-      overflow-wrap:anywhere;
-    }
-    .row { display:flex; gap:8px; }
-    .row button { flex:1; }
-    .danger { background:#ead5df; color:#753d55; }
-    .account-panel{scroll-margin-top:18px}
-    #accountConnectionDetails{margin-top:12px}
-  `;
-  document.head.appendChild(style);
-
-  const accountHTML = `
-    <section class="account-panel" id="account">
-      <div class="card">
-        <h3>🔐 Hesabım</h3>
-        <p class="muted">Bu bölümden girişini, çıkışını ve iki kişilik ortak alanınızı yönetebilirsin.</p>
-        <div id="cloudStatus" class="status">Hesap durumu kontrol ediliyor...</div>
-
-        <div id="cloudAuth">
-          <h3>Giriş yap veya hesap oluştur</h3>
-          <input id="cloudEmail" type="email" placeholder="E-posta adresin" autocomplete="email">
-          <input id="cloudPassword" type="password" placeholder="Şifren (en az 6 karakter)" autocomplete="current-password">
-          <div class="row">
-            <button id="cloudSignUpButton" type="button">Hesap oluştur</button>
-            <button class="secondary" id="cloudSignInButton" type="button">Giriş yap</button>
-          </div>
-        </div>
-
-        <div id="cloudRoom" class="hidden">
-          <p id="cloudUser" class="muted"></p>
-          <div id="cloudRoomInfo" class="status">Ortak alan kontrol ediliyor...</div>
-          <button id="cloudCreateButton" type="button">❤️ Ortak alan oluştur</button>
-          <input id="cloudInvite" placeholder="Diğer kişinin davet kodu">
-          <button class="secondary" id="cloudJoinButton" type="button">Davet koduyla ortak alana katıl</button>
-          <button class="danger" id="cloudSignOutButton" type="button">Güvenli çıkış yap</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>⚙️ Bağlantı ayarları</h3>
-        <p class="note">Bu ayarlar ilk kurulum içindir. Normal kullanımda yeniden girmen gerekmez.</p>
-        <details id="accountConnectionDetails">
-          <summary>Supabase bağlantı bilgilerini düzenle</summary>
-          <input id="cloudUrl" placeholder="Supabase proje URL'si" autocomplete="url">
-          <input id="cloudKey" type="password" placeholder="Supabase Publishable key" autocomplete="off">
-          <button id="cloudConnectButton" type="button">Bağlantıyı kaydet</button>
-        </details>
-      </div>
-    </section>
-  `;
-
-  if (!document.getElementById("account")) {
-    const home = main.querySelector("#home");
-    if (home) home.insertAdjacentHTML("beforeend", accountHTML);
-    else main.insertAdjacentHTML("beforeend", accountHTML);
+/* ===== HESAP VE SUPABASE: TEK OTURUM YONETIMI ===== */
+(function(){
+ const main=document.querySelector("main"),nav=document.querySelector("nav");
+ if(!main||!nav)return;
+ const style=document.createElement("style");
+ style.textContent=`
+  .hidden{display:none!important}
+  .status{background:#fff0f5;padding:12px;border-radius:10px;margin:10px 0;overflow-wrap:anywhere;line-height:1.5}
+  .row{display:flex;gap:8px}
+  .row button{flex:1}
+  .danger{background:#ead5df;color:#753d55}
+  .account-panel{scroll-margin-top:18px}
+  #syncStatus{font-size:13px}
+  #account button:disabled{opacity:.6;cursor:wait}
+ `;
+ document.head.appendChild(style);
+ const accountHTML=`
+  <section class="account-panel" id="account">
+   <div class="card">
+    <h3>🔐 Hesabım</h3>
+    <p class="muted">Giriş, ortak alan ve güvenli çıkış ayarların burada.</p>
+    <div id="cloudStatus" class="status" role="status" aria-live="polite">Hesap durumu kontrol ediliyor...</div>
+    <div id="cloudAuth" class="status">Giriş ve hesap oluşturma işlemleri güvenli giriş ekranından yapılır.</div>
+    <div id="cloudRoom" class="hidden">
+     <p id="cloudUser" class="muted"></p>
+     <div id="cloudRoomInfo" class="status">Ortak alan bilgisi kontrol ediliyor...</div>
+     <button id="copyInviteButton" class="secondary" type="button" hidden>Davet kodunu kopyala</button>
+     <button id="cloudCreateButton" type="button">❤️ İki kişilik ortak alan oluştur</button>
+     <input id="cloudInvite" placeholder="Diğer kişinin davet kodu" autocomplete="off">
+     <button class="secondary" id="cloudJoinButton" type="button">Davet koduyla ortak alana katıl</button>
+     <div id="syncStatus" class="status">Ortak kayıtlar bekleniyor...</div>
+     <button class="danger" id="cloudSignOutButton" type="button">Güvenli çıkış yap</button>
+    </div>
+   </div>
+   <div class="card">
+    <h3>🛡️ Gizlilik ve kayıtlar</h3>
+    <p class="note">Anılar, planlar, mektuplar ve diğer ortak kayıtlar giriş yaptığın hesabın iki kişilik ortak alanında saklanır. Fotoğraflar herkese açık olmayan özel depoda tutulur.</p>
+   </div>
+  </section>
+ `;
+ if(!document.getElementById("account")){
+  const home=main.querySelector("#home");
+  if(home)home.insertAdjacentHTML("beforeend",accountHTML);
+  else main.insertAdjacentHTML("beforeend",accountHTML);
+ }
+ const accountTab=document.getElementById("accountTab");
+ const originalShowPage=window.showPage;
+ if(accountTab){
+  window.showPage=function(id,button){
+   if(id!=="account"){
+    if(typeof originalShowPage==="function")return originalShowPage(id,button);
+    return;
+   }
+   if(typeof originalShowPage==="function")originalShowPage("home");
+   nav.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
+   accountTab.classList.add("active");
+   const panel=document.getElementById("account");
+   if(panel)panel.scrollIntoView({behavior:"smooth",block:"start"});
+  };
+  accountTab.addEventListener("click",()=>window.showPage("account",accountTab));
+ }
+ let client=null,currentUser=null,currentInviteCode="";
+ const el=id=>document.getElementById(id);
+ function status(message){const node=el("cloudStatus");if(node)node.textContent=message;}
+ function setSyncStatus(message){const node=el("syncStatus");if(node)node.textContent=message;}
+ function updateAuthUI(){
+  const auth=el("cloudAuth"),room=el("cloudRoom"),userLabel=el("cloudUser");
+  if(auth)auth.classList.toggle("hidden",!!currentUser);
+  if(room)room.classList.toggle("hidden",!currentUser);
+  if(userLabel)userLabel.textContent=currentUser?"Giriş yapıldı: "+(currentUser.email||"Hesap"):"";
+  const summary=el("homeAuthSummary");
+  if(summary)summary.textContent=currentUser
+   ?"Giriş açık: "+(currentUser.email||"Hesabın")+" · Ortak alan ve çıkış ayarların hazır."
+   :"Hesabına giriş yapmak için güvenli giriş ekranını kullan.";
+ }
+ async function loadRoom(){
+  if(!client||!currentUser)return;
+  status("Ortak alanın kontrol ediliyor...");
+  const createButton=el("cloudCreateButton"),invite=el("cloudInvite"),joinButton=el("cloudJoinButton"),copyButton=el("copyInviteButton");
+  const member=await client.from("app_members").select("couple_id").eq("user_id",currentUser.id).maybeSingle();
+  if(member.error){status("Ortak alan okunamadı: "+member.error.message);return;}
+  if(!member.data){
+   currentInviteCode="";
+   el("cloudRoomInfo").textContent="Henüz ortak alanın yok. Önce sen bir ortak alan oluşturabilir veya diğer kişinin davet koduyla katılabilirsin.";
+   createButton.hidden=false;invite.hidden=false;joinButton.hidden=false;copyButton.hidden=true;
+   status("Giriş başarılı. Ortak alan oluşturabilir veya davet koduyla katılabilirsin.");
+   return;
   }
-
-  let accountTab = document.getElementById("accountTab");
-
-  if (!accountTab) {
-    accountTab = document.createElement("button");
-    accountTab.id = "accountTab";
-    accountTab.type = "button";
-    accountTab.innerHTML = "👤<br>Hesap";
-    nav.appendChild(accountTab);
+  const room=await client.from("app_couples").select("id,invite_code").eq("id",member.data.couple_id).single();
+  if(room.error){status("Ortak alan bilgisi alınamadı: "+room.error.message);return;}
+  currentInviteCode=room.data.invite_code||"";
+  el("cloudRoomInfo").textContent="Ortak alanın hazır ❤️ Davet kodun: "+currentInviteCode+" · Bu kodu yalnızca kız arkadaşınla paylaş.";
+  createButton.hidden=true;invite.hidden=true;joinButton.hidden=true;copyButton.hidden=!currentInviteCode;
+  status("Hesabın ve ortak alanın hazır. ❤️");
+  window.dispatchEvent(new CustomEvent("bh-room-ready",{detail:{coupleId:member.data.couple_id}}));
+ }
+ async function runButton(button,task){
+  if(!button||button.disabled)return;
+  button.disabled=true;
+  try{await task();}
+  catch(error){status(error.message||"İşlem tamamlanamadı.");}
+  finally{button.disabled=false;}
+ }
+ el("cloudCreateButton").addEventListener("click",()=>runButton(el("cloudCreateButton"),async()=>{
+  if(!client||!currentUser)throw new Error("Önce giriş yapmalısın.");
+  status("Ortak alan oluşturuluyor...");
+  const result=await client.rpc("create_couple");
+  if(result.error)throw new Error("Ortak alan oluşturulamadı: "+result.error.message);
+  await loadRoom();
+ }));
+ el("cloudJoinButton").addEventListener("click",()=>runButton(el("cloudJoinButton"),async()=>{
+  if(!client||!currentUser)throw new Error("Önce giriş yapmalısın.");
+  const code=el("cloudInvite").value.trim().toUpperCase();
+  if(!code)throw new Error("Davet kodunu gir.");
+  status("Davet kodu kontrol ediliyor...");
+  const result=await client.rpc("join_couple",{p_invite_code:code});
+  if(result.error)throw new Error("Katılım başarısız: "+result.error.message);
+  el("cloudInvite").value="";
+  await loadRoom();
+  status("Ortak alana katıldın. ❤️");
+ }));
+ el("copyInviteButton").addEventListener("click",()=>runButton(el("copyInviteButton"),async()=>{
+  if(!currentInviteCode)throw new Error("Kopyalanacak davet kodu yok.");
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+   await navigator.clipboard.writeText(currentInviteCode);
+   status("Davet kodu panoya kopyalandı. ❤️");
+  }else{
+   status("Davet kodun: "+currentInviteCode);
   }
-
-  // Mevcut sayfa geçiş sistemini doğru fonksiyon üzerinden kullan.
-  const originalShowPage = window.showPage;
-
-  window.showPage = function (id, button) {
-    if (id !== "account") {
-      if (typeof originalShowPage === "function") {
-        return originalShowPage(id, button);
-      }
-      return;
-    }
-
-    // Hesap ayarlarını ayrı bir boş sayfaya taşımak yerine ana sayfanın
-    // sonundaki görünür panele kaydır. Böylece mobilde boş ekran oluşmaz.
-    if (typeof originalShowPage === "function") originalShowPage("home");
-    nav.querySelectorAll("button").forEach(b => b.classList.remove("active"));
-    accountTab.classList.add("active");
-    const panel = document.getElementById("account");
-    if (panel) panel.scrollIntoView({behavior:"smooth",block:"start"});
-  };
-
-  accountTab.onclick = function () {
-    window.showPage("account", accountTab);
-  };
-
-  let client = null;
-  let currentUser = null;
-
-  const el = id => document.getElementById(id);
-
-  function status(message) {
-    el("cloudStatus").textContent = message;
-  }
-
-  function updateAuthUI() {
-    el("cloudAuth").classList.toggle("hidden", !!currentUser);
-    el("cloudRoom").classList.toggle("hidden", !currentUser);
-    el("cloudUser").textContent =
-      currentUser ? "Giriş yapıldı: " + currentUser.email : "";
-    const summary=el("homeAuthSummary");
-    if(summary)summary.textContent=currentUser
-      ? "Giriş açık: "+currentUser.email+" · Hesap ve ortak alan ayarların hazır."
-      : "Henüz giriş yapılmadı. Hesabına buradan giriş yapabilirsin.";
-    if(currentUser)status("Hesabın açık. Ortak alanını aşağıdan yönetebilirsin.");
-  }
-
-  async function loadSupabaseLibrary() {
-    if (window.supabase) return;
-
-    await new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
-      script.onload = resolve;
-      script.onerror = () => reject(
-        new Error("Supabase kütüphanesi yüklenemedi.")
-      );
-      document.head.appendChild(script);
-    });
-  }
-
-  async function loadRoom() {
-    if (!client || !currentUser) return;
-
-    const member = await client
-      .from("app_members")
-      .select("couple_id")
-      .eq("user_id", currentUser.id)
-      .maybeSingle();
-
-    if (member.error) {
-      status("Ortak alan okunamadı: " + member.error.message);
-      return;
-    }
-
-    if (!member.data) {
-      el("cloudRoomInfo").textContent =
-        "Henüz ortak alanın yok. Oluşturabilir veya davet koduyla katılabilirsin.";
-      return;
-    }
-
-    const room = await client
-      .from("app_couples")
-      .select("id, invite_code")
-      .eq("id", member.data.couple_id)
-      .single();
-
-    if (room.error) {
-      status("Ortak alan bilgisi alınamadı: " + room.error.message);
-      return;
-    }
-
-    el("cloudRoomInfo").textContent =
-      "Ortak alanın hazır ❤️ Davet kodun: " + room.data.invite_code;
-    window.dispatchEvent(new CustomEvent("bh-room-ready",{detail:{coupleId:member.data.couple_id}}));
-  }
-
-  el("cloudConnectButton").onclick = async function () {
-    const url = el("cloudUrl").value.trim().replace(/\/+$/, "");
-    const key = el("cloudKey").value.trim();
-
-    if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url) ||
-        !key.startsWith("sb_publishable_")) {
-      status("Supabase URL'sini ve Publishable key'i kontrol et.");
-      return;
-    }
-
-    try {
-      status("Bağlanıyor...");
-      await loadSupabaseLibrary();
-
-      client = window.__bhClient || window.supabase.createClient(url, key);
-      window.__bhClient = client;
-
-      localStorage.setItem(
-        "bizimCloudConfig",
-        JSON.stringify({url, key})
-      );
-
-      const result = await client.auth.getSession();
-      if (result.error) throw result.error;
-
-      currentUser = result.data.session?.user || null;
-      updateAuthUI();
-
-      if (currentUser) await loadRoom();
-
-      status("Supabase bağlantısı hazır.");
-    } catch (error) {
-      status("Bağlantı hatası: " + error.message);
-    }
-  };
-
-  el("cloudSignUpButton").onclick = async function () {
-    if (!client) return status("Önce bağlantıyı kaydet.");
-
-    const email = el("cloudEmail").value.trim();
-    const password = el("cloudPassword").value;
-
-    if (!email || password.length < 6) {
-      return status("E-posta ve en az 6 karakterli şifre gir.");
-    }
-
-    const result = await client.auth.signUp({email, password});
-
-    if (result.error) return status(result.error.message);
-
-    currentUser = result.data.session?.user || null;
-    updateAuthUI();
-
-    status(currentUser
-      ? "Hesap oluşturuldu. ❤️"
-      : "Hesap oluşturuldu. E-postanı doğrulayıp giriş yap.");
-  };
-
-  el("cloudSignInButton").onclick = async function () {
-    if (!client) return status("Önce bağlantıyı kaydet.");
-
-    const result = await client.auth.signInWithPassword({
-      email: el("cloudEmail").value.trim(),
-      password: el("cloudPassword").value
-    });
-
-    if (result.error) return status(result.error.message);
-
-    currentUser = result.data.user;
-    updateAuthUI();
-    await loadRoom();
-    status("Giriş başarılı. ❤️");
-  };
-
-  el("cloudCreateButton").onclick = async function () {
-    if (!client || !currentUser) return status("Önce giriş yap.");
-
-    const result = await client.rpc("create_couple");
-
-    if (result.error) {
-      return status("Ortak alan oluşturulamadı: " + result.error.message);
-    }
-
-    await loadRoom();
-  };
-
-  el("cloudJoinButton").onclick = async function () {
-    if (!client || !currentUser) return status("Önce giriş yap.");
-
-    const code = el("cloudInvite").value.trim().toUpperCase();
-    if (!code) return status("Davet kodunu gir.");
-
-    const result = await client.rpc("join_couple", {
-      p_invite_code: code
-    });
-
-    if (result.error) {
-      return status("Katılım başarısız: " + result.error.message);
-    }
-
-    await loadRoom();
-    status("Ortak alana katıldın. ❤️");
-  };
-
-  el("cloudSignOutButton").onclick = async function () {
-    try {
-      status("Güvenli çıkış yapılıyor...");
-      // Giriş ekranının kullandığı istemciyi de kapat; böylece özel alan kilitlenir.
-      const gateClient = window.__bhClient;
-      if (gateClient) {
-        const result = await gateClient.auth.signOut();
-        if (result.error) throw result.error;
-      } else if (client) {
-        const result = await client.auth.signOut();
-        if (result.error) throw result.error;
-      }
-
-      currentUser = null;
-      updateAuthUI();
-      el("cloudRoomInfo").textContent = "";
-      document.body.classList.add("private-locked");
-      const gate = document.getElementById("privateGate");
-      if (gate) gate.style.display = "flex";
-      status("Çıkış yapıldı. Yeniden giriş yapabilirsin.");
-    } catch (error) {
-      status("Çıkış yapılamadı: " + (error.message || "Bilinmeyen hata"));
-    }
-  };
-
-  window.addEventListener("bh-auth-ready", async function () {
-    if (!window.__bhClient) return;
-    client = window.__bhClient;
-    try {
-      const sessionResult = await client.auth.getSession();
-      if (sessionResult.error) throw sessionResult.error;
-      currentUser = sessionResult.data.session?.user || null;
-      updateAuthUI();
-      if (currentUser) await loadRoom();
-    } catch (error) {
-      status("Hesap bilgisi alınamadı: " + error.message);
-    }
-  });
-
-  async function restoreConnection() {
-    const saved = JSON.parse(
-      localStorage.getItem("bizimCloudConfig") || "null"
-    );
-
-    if (!saved) return;
-
-    el("cloudUrl").value = saved.url;
-    el("cloudKey").value = saved.key;
-    el("cloudConnectButton").click();
-  }
-
-  // Kayıtlı bağlantıyı hesap ekranında da hazırla; kullanıcı oturumu varsa göster.
-  restoreConnection();
-
-  // Giriş ekranı tek Supabase istemcisini yönetir; burada ikinci istemci açma.
-})();
-
-</script>
+ }));
+ el("cloudSignOutButton").addEventListener("click",()=>runButton(el("cloudSignOutButton"),async()=>{
+  if(!client)throw new Error("Oturum bağlantısı bulunamadı.");
+  status("Güvenli çıkış yapılıyor...");
+  const result=await client.auth.signOut();
+  if(result.error)throw result.error;
+  currentUser=null;currentInviteCode="";
+  updateAuthUI();
+  document.body.classList.add("private-locked");
+  const gate=el("privateGate");
+  if(gate)gate.style.display="flex";
+  const gateStatus=el("gateStatus");
+  if(gateStatus)gateStatus.textContent="Çıkış yapıldı. Yeniden giriş yapabilirsin.";
+ }));
+ window.addEventListener("bh-auth-ready",async()=>{
+  client=window.__bhClient||null;
+  if(!client){status("Giriş bağlantısı bulunamadı. Sayfayı yenileyip yeniden giriş yap.");return;}
+  try{
+   const session=await client.auth.getSession();
+   if(session.error)throw session.error;
+   currentUser=session.data.session?.user||null;
+   updateAuthUI();
+   if(currentUser)await loadRoom();
+  }catch(error){status("Hesap bilgisi alınamadı: "+error.message);}
+ });
+ window.addEventListener("bh-sync-status",event=>{
+  const detail=event.detail||{};
+  setSyncStatus(detail.message||"Ortak kayıt durumu güncellendi.");
+ });
+})();</script>
 
 
 <style>
@@ -1308,36 +1189,148 @@ if("serviceWorker" in navigator){
 #privateGate .gate-status{font-size:13px;color:#9b4569;min-height:20px;margin-top:12px;overflow-wrap:anywhere}
 body.private-locked>header,body.private-locked>main,body.private-locked>nav{display:none!important}
 </style>
-<div id="privateGate"><div class="gate-card">
-<div style="font-size:48px">❤️</div><h1>Bizim Hikâyemiz</h1>
-<p>Bu küçük dünyaya yalnızca ikiniz giriş yapabilirsiniz.</p>
-<details id="connectionSettings">
- <summary>⚙️ Bağlantı ayarları</summary>
- <input id="gateUrl" placeholder="Supabase proje URL'si" autocomplete="url">
- <input id="gateKey" type="password" placeholder="Supabase Publishable key" autocomplete="off">
-</details>
-<input id="gateEmail" type="email" placeholder="E-posta adresin" autocomplete="email">
-<input id="gatePassword" type="password" placeholder="Şifren (en az 6 karakter)" autocomplete="current-password">
-<button id="gateLogin">Giriş yap ❤️</button><button id="gateRegister" class="secondary">Hesap oluştur</button>
-<div id="gateStatus" class="gate-status">Özel alanı açmak için giriş yap.</div>
-</div></div>
+<div id="privateGate">
+ <div class="gate-card">
+  <div style="font-size:48px">❤️</div>
+  <h1>Bizim Hikâyemiz</h1>
+  <p>Bu küçük dünyaya yalnızca ikiniz giriş yapabilirsiniz.</p>
+  <details id="connectionSettings">
+   <summary>⚙️ İlk bağlantı / bağlantı ayarları</summary>
+   <input id="gateUrl" placeholder="Supabase proje URL'si" autocomplete="url">
+   <input id="gateKey" type="password" placeholder="Supabase Publishable key" autocomplete="off">
+  </details>
+  <input id="gateEmail" type="email" placeholder="E-posta adresin" autocomplete="email">
+  <input id="gatePassword" type="password" placeholder="Şifren (en az 6 karakter)" autocomplete="current-password">
+  <button id="gateTogglePassword" class="secondary" type="button">Şifreyi göster</button>
+  <div class="row">
+   <button id="gateLogin" type="button">Giriş yap ❤️</button>
+   <button id="gateRegister" class="secondary" type="button">Hesap oluştur</button>
+  </div>
+  <div id="gateStatus" class="gate-status" role="status" aria-live="polite">Özel alanı açmak için giriş yap.</div>
+ </div>
+</div>
 <script>
 (function(){
  document.body.classList.add("private-locked");
- const $=id=>document.getElementById(id);let client=null;const gate=$("privateGate");
- const status=t=>$("gateStatus").textContent=t;
- const saved=JSON.parse(localStorage.getItem("bizimCloudConfig")||"null");
- if(saved){$("gateUrl").value=saved.url||"";$("gateKey").value=saved.key||"";$("connectionSettings").open=false;}else{$("connectionSettings").open=true;}
- function loadLib(){if(window.supabase)return Promise.resolve();return new Promise((resolve,reject)=>{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";s.onload=resolve;s.onerror=()=>reject(new Error("Supabase kütüphanesi yüklenemedi."));document.head.appendChild(s);});}
- async function connect(){
-  const url=$("gateUrl").value.trim().replace(/\/+$/,"");const key=$("gateKey").value.trim();
-  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)||!key.startsWith("sb_publishable_"))throw new Error("Supabase URL ve Publishable key bilgilerini kontrol et.");
-  await loadLib();client=window.__bhClient||window.supabase.createClient(url,key);window.__bhClient=client;if(!window.__bhAuthListener){window.__bhAuthListener=true;client.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_OUT"||!session){gate.style.display="flex";document.body.classList.add("private-locked");status("Özel alanı açmak için yeniden giriş yap.");}});}localStorage.setItem("bizimCloudConfig",JSON.stringify({url,key}));return client;
+ const $=id=>document.getElementById(id);
+ const gate=$("privateGate");
+ let client=null,loadPromise=null,connectPromise=null,authListenerReady=false;
+ const status=message=>{$("gateStatus").textContent=message;};
+ function readConfig(){
+  try{return JSON.parse(localStorage.getItem("bizimCloudConfig")||"null");}
+  catch(error){return null;}
  }
- function unlock(){gate.style.display="none";document.body.classList.remove("private-locked");}
- $("gateLogin").onclick=async()=>{try{status("Bağlanılıyor...");const c=await connect();const r=await c.auth.signInWithPassword({email:$("gateEmail").value.trim(),password:$("gatePassword").value});if(r.error)throw r.error;if(r.data.user?.id)window.__bhPrepareLocalUser?.(r.data.user.id);status("Giriş başarılı. Özel alan açılıyor...");unlock();window.dispatchEvent(new Event("bh-auth-ready"));}catch(e){status(e.message||"Giriş yapılamadı.");}};
- $("gateRegister").onclick=async()=>{try{status("Hesap oluşturuluyor...");const c=await connect();const r=await c.auth.signUp({email:$("gateEmail").value.trim(),password:$("gatePassword").value,options:{emailRedirectTo:location.origin+location.pathname}});if(r.error)throw r.error;if(r.data.session){if(r.data.session.user?.id)window.__bhPrepareLocalUser?.(r.data.session.user.id);unlock();window.dispatchEvent(new Event("bh-auth-ready"));}else status("Kayıt oluşturuldu. E-postana gelen doğrulama bağlantısına tıkla, sonra giriş yap.");}catch(e){status(e.message||"Kayıt oluşturulamadı.");}};
- (async()=>{try{if(!saved)return;const c=await connect();const r=await c.auth.getSession();if(r.error)throw r.error;if(r.data.session){if(r.data.session.user?.id)window.__bhPrepareLocalUser?.(r.data.session.user.id);unlock();window.dispatchEvent(new Event("bh-auth-ready"));}}catch(e){status("Giriş için Supabase bağlantını kontrol et: "+e.message);}})();
+ const saved=readConfig();
+ if(saved){
+  $("gateUrl").value=saved.url||"";
+  $("gateKey").value=saved.key||"";
+  $("connectionSettings").open=false;
+ }else{
+  $("connectionSettings").open=true;
+  status("İlk kullanım: Bağlantı ayarlarını açıp Supabase URL ve Publishable key bilgilerini gir.");
+ }
+ function loadLibrary(){
+  if(window.supabase)return Promise.resolve();
+  if(loadPromise)return loadPromise;
+  loadPromise=new Promise((resolve,reject)=>{
+   const script=document.createElement("script");
+   script.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+   script.onload=resolve;
+   script.onerror=()=>reject(new Error("Supabase kütüphanesi yüklenemedi. İnternet bağlantını kontrol et."));
+   document.head.appendChild(script);
+  });
+  return loadPromise;
+ }
+ async function connect(){
+  if(client)return client;
+  if(connectPromise)return connectPromise;
+  connectPromise=(async()=>{
+   const url=$("gateUrl").value.trim().replace(/\/+$/,"");
+   const key=$("gateKey").value.trim();
+   if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)||!key.startsWith("sb_publishable_")){
+    throw new Error("Supabase URL ve Publishable key bilgilerini kontrol et.");
+   }
+   await loadLibrary();
+   client=window.__bhClient||window.supabase.createClient(url,key);
+   window.__bhClient=client;
+   if(!authListenerReady){
+    authListenerReady=true;
+    client.auth.onAuthStateChange((event,session)=>{
+     if(event==="SIGNED_OUT"){
+      gate.style.display="flex";
+      document.body.classList.add("private-locked");
+      status("Çıkış yapıldı. Yeniden giriş yapabilirsin.");
+      window.dispatchEvent(new Event("bh-auth-signed-out"));
+     }
+    });
+   }
+   localStorage.setItem("bizimCloudConfig",JSON.stringify({url,key}));
+   return client;
+  })();
+  try{return await connectPromise;}
+  finally{connectPromise=null;}
+ }
+ function openPrivateArea(user){
+  if(user&&user.id&&typeof window.__bhPrepareLocalUser==="function")window.__bhPrepareLocalUser(user.id);
+  gate.style.display="none";
+  document.body.classList.remove("private-locked");
+  window.dispatchEvent(new Event("bh-auth-ready"));
+ }
+ async function handleLogin(){
+  const email=$("gateEmail").value.trim(),password=$("gatePassword").value;
+  if(!email||!password){status("E-posta adresini ve şifreni gir.");return;}
+  $("gateLogin").disabled=true;
+  try{
+   status("Güvenli bağlantı kuruluyor...");
+   const c=await connect();
+   const result=await c.auth.signInWithPassword({email,password});
+   if(result.error)throw result.error;
+   openPrivateArea(result.data.user||result.data.session?.user);
+   status("Giriş başarılı. Hoş geldin! ❤️");
+  }catch(error){status(error.message||"Giriş yapılamadı.");}
+  finally{$("gateLogin").disabled=false;}
+ }
+ async function handleRegister(){
+  const email=$("gateEmail").value.trim(),password=$("gatePassword").value;
+  if(!email||!password){status("E-posta adresini ve şifreni gir.");return;}
+  if(password.length<6){status("Şifre en az 6 karakter olmalı.");return;}
+  $("gateRegister").disabled=true;
+  try{
+   status("Hesabın oluşturuluyor...");
+   const c=await connect();
+   const result=await c.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});
+   if(result.error)throw result.error;
+   if(result.data.session){
+    openPrivateArea(result.data.user||result.data.session.user);
+    status("Hesabın oluşturuldu. ❤️");
+   }else{
+    status("Hesabın oluşturuldu. E-postana gelen doğrulama bağlantısına tıkla; ardından bu ekrandan giriş yap.");
+   }
+  }catch(error){status(error.message||"Hesap oluşturulamadı.");}
+  finally{$("gateRegister").disabled=false;}
+ }
+ $("gateLogin").addEventListener("click",handleLogin);
+ $("gateRegister").addEventListener("click",handleRegister);
+ $("gatePassword").addEventListener("keydown",event=>{if(event.key==="Enter")handleLogin();});
+ $("gateTogglePassword").addEventListener("click",()=>{
+  const field=$("gatePassword");
+  field.type=field.type==="password"?"text":"password";
+  $("gateTogglePassword").textContent=field.type==="password"?"Şifreyi göster":"Şifreyi gizle";
+ });
+ (async()=>{
+  if(!saved)return;
+  try{
+   status("Kayıtlı oturum kontrol ediliyor...");
+   const c=await connect();
+   const result=await c.auth.getSession();
+   if(result.error)throw result.error;
+   const user=result.data.session?.user||null;
+   if(user){
+    openPrivateArea(user);
+    status("Oturumun açık. Hoş geldin! ❤️");
+   }else status("Bağlantı hazır. E-posta ve şifrenle giriş yapabilirsin.");
+  }catch(error){status("Bağlantı kurulamadı: "+(error.message||"Ayarları kontrol et."));}
+ })();
 })();
 </script>
 
@@ -1412,7 +1405,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
      const previous=last[key]?JSON.parse(last[key]):null;
      if(Array.isArray(previous)&&Array.isArray(value)){const now=new Set(value.map(identity));previous.forEach(item=>{const id=identity(item);if(!now.has(id))deleted.add(id);});}
      await saveKey(key,value,[...deleted]);last[key]=JSON.stringify(value);
-   }catch(e){console.warn("Ortak kayıt kaydedilemedi:",key,e.message);}
+   }catch(e){console.warn("Ortak kayıt kaydedilemedi:",key,e.message);window.dispatchEvent(new CustomEvent("bh-sync-status",{detail:{message:"Senkronizasyon hatası ("+key+"): "+e.message}}));}
  }
  function schedule(key,value){clearTimeout(timers[key]);timers[key]=setTimeout(()=>{delete timers[key];syncKey(key,value);},500);}
  async function refresh(){
@@ -1431,7 +1424,13 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
      const rows=await fetchRows();
      for(const key of KEYS){const local=JSON.parse(localStorage.getItem(key)||"null"),merged=mergeSnapshots(rows,key,local);if(merged!==undefined){localStorage.setItem(key,JSON.stringify(merged));last[key]=JSON.stringify(merged);}await syncKey(key,merged===undefined?local:merged);}
      if(channel)await client.removeChannel(channel);
-     channel=client.channel("bh-items-"+coupleId).on("postgres_changes",{event:"*",schema:"public",table:"app_items",filter:"couple_id=eq."+coupleId},()=>refresh()).subscribe();
+     window.dispatchEvent(new CustomEvent("bh-sync-status",{detail:{message:"Ortak kayıtlar yükleniyor..."}}));
+     channel=client.channel("bh-items-"+coupleId)
+       .on("postgres_changes",{event:"*",schema:"public",table:"app_items",filter:"couple_id=eq."+coupleId},()=>refresh())
+       .subscribe(state=>{
+         if(state==="SUBSCRIBED")window.dispatchEvent(new CustomEvent("bh-sync-status",{detail:{message:"Ortak kayıtlar eşitlendi. İkinizin değişiklikleri burada güncellenecek. ❤️"}}));
+         else if(state==="CHANNEL_ERROR"||state==="TIMED_OUT")window.dispatchEvent(new CustomEvent("bh-sync-status",{detail:{message:"Canlı eşitleme bağlantısı kurulamadı. İnternet bağlantını kontrol et."}}));
+       });
    })();
    try{await startPromise;}finally{startPromise=null;}
  }
@@ -1451,8 +1450,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
  window.addEventListener("bh-auth-ready",async()=>{watchAuth();try{await start();}catch(e){console.warn(e.message);}});
  window.addEventListener("storage",e=>{if(KEYS.includes(e.key)&&e.newValue){try{schedule(e.key,JSON.parse(e.newValue));}catch(err){}}});
  if(typeof originalWrite==="function")window.write=function(key,value){const ok=originalWrite(key,value);if(ok&&KEYS.includes(key))schedule(key,value);return ok;};
- const saved=JSON.parse(localStorage.getItem("bizimCloudConfig")||"null");
- if(saved){const poll=setInterval(()=>{if(window.__bhClient){clearInterval(poll);watchAuth();window.dispatchEvent(new Event("bh-auth-ready"));}},500);setTimeout(()=>clearInterval(poll),15000);}
+ // Kimlik doğrulama kapısı oturum hazır olduğunda bh-auth-ready olayını gönderir.
 })();
 </script>
 
