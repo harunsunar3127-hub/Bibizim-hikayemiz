@@ -1,4 +1,3 @@
-
 {
   "name": "Bizim Hikâyemiz",
   "short_name": "Bizim Aşkımız",
@@ -9,5 +8,12 @@
   "orientation": "portrait",
   "background_color": "#fff2f6",
   "theme_color": "#f7b8cc",
-  "icons": []
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
 }
