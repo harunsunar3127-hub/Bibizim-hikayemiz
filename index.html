@@ -682,10 +682,15 @@ async function showMemories(){
  }
  if(!el.children.length)el.textContent="Henüz anınız yok. İlk anınızı ekleyin ❤️";
 }
-function deleteMemory(id){
+async function deleteMemory(id){
  if(!confirm("Bu anıyı silmek istiyor musunuz?"))return;
- write("memories",getMemories().filter(m=>m.id!==id));
+ const list=getMemories();const target=list.find(m=>m.id===id);
+ write("memories",list.filter(m=>m.id!==id));
  showMemories();
+ if(target?.photo?.startsWith("storage://")&&window.__bhClient){
+  const removed=await window.__bhClient.storage.from("couple-photos").remove([target.photo.slice(10)]);
+  if(removed.error)console.warn("Fotoğraf depodan silinemedi:",removed.error.message);
+ }
 }
 showMemories();
 
