@@ -1260,9 +1260,9 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
   await loadLib();client=window.supabase.createClient(url,key);window.__bhClient=client;if(!window.__bhAuthListener){window.__bhAuthListener=true;client.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_OUT"||!session){gate.style.display="flex";document.body.classList.add("private-locked");status("Özel alanı açmak için yeniden giriş yap.");}});}localStorage.setItem("bizimCloudConfig",JSON.stringify({url,key}));return client;
  }
  function unlock(){gate.style.display="none";document.body.classList.remove("private-locked");}
- $("gateLogin").onclick=async()=>{try{status("Bağlanılıyor...");const c=await connect();const r=await c.auth.signInWithPassword({email:$("gateEmail").value.trim(),password:$("gatePassword").value});if(r.error)throw r.error;status("Giriş başarılı. Özel alan açılıyor...");unlock();window.dispatchEvent(new Event("bh-auth-ready"));}catch(e){status(e.message||"Giriş yapılamadı.");}};
- $("gateRegister").onclick=async()=>{try{status("Hesap oluşturuluyor...");const c=await connect();const r=await c.auth.signUp({email:$("gateEmail").value.trim(),password:$("gatePassword").value,options:{emailRedirectTo:location.origin+location.pathname}});if(r.error)throw r.error;if(r.data.session){unlock();window.dispatchEvent(new Event("bh-auth-ready"));}else status("Kayıt oluşturuldu. E-postana gelen doğrulama bağlantısına tıkla, sonra giriş yap.");}catch(e){status(e.message||"Kayıt oluşturulamadı.");}};
- (async()=>{try{if(!saved)return;const c=await connect();const r=await c.auth.getSession();if(r.error)throw r.error;if(r.data.session){unlock();window.dispatchEvent(new Event("bh-auth-ready"));}}catch(e){status("Giriş için Supabase bağlantını kontrol et: "+e.message);}})();
+ $("gateLogin").onclick=async()=>{try{status("Bağlanılıyor...");const c=await connect();const r=await c.auth.signInWithPassword({email:$("gateEmail").value.trim(),password:$("gatePassword").value});if(r.error)throw r.error;if(r.data.user?.id)window.__bhPrepareLocalUser?.(r.data.user.id);status("Giriş başarılı. Özel alan açılıyor...");unlock();window.dispatchEvent(new Event("bh-auth-ready"));}catch(e){status(e.message||"Giriş yapılamadı.");}};
+ $("gateRegister").onclick=async()=>{try{status("Hesap oluşturuluyor...");const c=await connect();const r=await c.auth.signUp({email:$("gateEmail").value.trim(),password:$("gatePassword").value,options:{emailRedirectTo:location.origin+location.pathname}});if(r.error)throw r.error;if(r.data.session){if(r.data.session.user?.id)window.__bhPrepareLocalUser?.(r.data.session.user.id);unlock();window.dispatchEvent(new Event("bh-auth-ready"));}else status("Kayıt oluşturuldu. E-postana gelen doğrulama bağlantısına tıkla, sonra giriş yap.");}catch(e){status(e.message||"Kayıt oluşturulamadı.");}};
+ (async()=>{try{if(!saved)return;const c=await connect();const r=await c.auth.getSession();if(r.error)throw r.error;if(r.data.session){if(r.data.session.user?.id)window.__bhPrepareLocalUser?.(r.data.session.user.id);unlock();window.dispatchEvent(new Event("bh-auth-ready"));}}catch(e){status("Giriş için Supabase bağlantını kontrol et: "+e.message);}})();
 })();
 </script>
 
@@ -1293,6 +1293,7 @@ body.private-locked>header,body.private-locked>main,body.private-locked>nav{disp
    });
    localStorage.setItem("bhLocalOwner",userId);
  }
+ window.__bhPrepareLocalUser=activateLocalUser;
  function stashAndClearLocal(){
    const owner=localStorage.getItem("bhLocalOwner");
    if(!owner)return;
