@@ -1,0 +1,58 @@
+name: Validate app scripts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - ".github/workflows/validate-app.yml"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check inline JavaScript syntax
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const { spawnSync } = require('child_process');
+          const html = fs.readFileSync('index.html', 'utf8');
+          const scripts = [...html.matchAll(/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/gi)]
+            .map(match => match[1])
+            .filter(source => source.trim().length);
+          if (!scripts.length) throw new Error('No inline scripts found');
+          scripts.forEach((source, index) => {
+            const file = `/tmp/app-script-${index + 1}.js`;
+            fs.writeFileSync(file, source);
+            const result = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' });
+            if (result.status !== 0) {
+              process.stderr.write(result.stderr || result.stdout);
+              process.exit(result.status || 1);
+            }
+          });
+          console.log(`Syntax OK: ${scripts.length} inline scripts`);
+          NODE
+      - name: Check critical login and action wiring
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('index.html', 'utf8');
+          const required = [
+            ['login gate visible at startup', /<div id="privateGate" style="display:flex"/],
+            ['startup lock', /document\.body\.classList\.add\("private-locked"\)/],
+            ['login handler', /signInWithPassword\(\{email,password\}\)/],
+            ['new question button', /bindAction\("newQuestionButton",nextQuestion\)/],
+            ['new task button', /bindAction\("newTaskButton",newTask\)/],
+            ['complete task button', /bindAction\("completeTaskButton",completeTask\)/],
+            ['date button', /bindAction\("newDateButton",newDate\)/]
+          ];
+          for (const [name, pattern] of required) {
+            if (!pattern.test(html)) throw new Error('Missing: ' + name);
+            console.log('OK: ' + name);
+          }
+          NODE
