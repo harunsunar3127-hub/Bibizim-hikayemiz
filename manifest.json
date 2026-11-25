@@ -1,6 +1,6 @@
 {
   "name": "Bizim Hikâyemiz",
-  "short_name": "Bizim Aşkımız",
+  "short_name": "Bizim Hikâyemiz",
   "id": "./",
   "description": "İki kalbin ortak hikâyesi",
   "start_url": "./index.html",
